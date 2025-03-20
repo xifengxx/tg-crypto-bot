@@ -1,0 +1,5 @@
+requests
+beautifulsoup4
+pymongo
+apscheduler
+python-telegram-bot
