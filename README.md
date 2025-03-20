@@ -107,6 +107,8 @@ python main.py
 [维护者信息]
 
 ## 许可证
+MIT License
+
 
 ## 快速开始
 
@@ -115,3 +117,16 @@ python main.py
 git clone https://github.com/xifengxx/tg-crypto-bot.git
 cd tg-crypto-bot
 ```
+
+## 贡献指南
+1. Fork 本仓库
+2. 创建你的特性分支 ( git checkout -b feature/AmazingFeature )
+3. 提交你的改动 ( git commit -m 'Add some AmazingFeature' )
+4. 推送到分支 ( git push origin feature/AmazingFeature )
+5. 提交 Pull Request
+
+## 问题反馈
+如果你有任何问题或建议，欢迎在 Issues 中提出。
+
+## Star History
+如果这个项目对你有帮助，欢迎点个 star ⭐️

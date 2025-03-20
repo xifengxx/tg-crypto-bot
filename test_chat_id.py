@@ -3,7 +3,7 @@
 import asyncio
 from telegram import Bot
 
-BOT_TOKEN = "8171650721:AAFxtapeLKemusUJAkWHLZEzGssZ5VUeFfI"  # 替换为你的 Bot Token
+BOT_TOKEN = ""  # 替换为你的 Bot Token
 
 async def get_chat_id():
     bot = Bot(token=BOT_TOKEN)
