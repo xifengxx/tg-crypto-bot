@@ -47,19 +47,27 @@
   - 30分钟间隔执行
 
 ## 配置说明
+
+1. 复制配置文件模板：
+```bash
+cp config.example.py config.py
+cp config.example.json config.json
+```
 ### Telegram 配置
 在 config.py 中配置：
 
 - BOT_TOKEN：Telegram Bot 的访问令牌
 - CHAT_IDS：需要推送消息的群组 ID 列表
+
 ### 飞书配置
 在 config.py 中配置：
 
 - LARK_WEBHOOK_URL：飞书机器人的 Webhook 地址
+
 ### 数据库配置
 在 config.py 中配置：
-
 - MONGO_URI：MongoDB 连接地址
+
 ## 运行说明
 1. 安装依赖
 ```bash
@@ -81,17 +89,29 @@ python main.py
 2. 并行抓取各交易所公告
 3. 数据存储并去重
 4. 推送新消息到 Telegram 和飞书
+
 ## 开发说明
 - Python 3.7+
 - 异步编程（asyncio）
 - MongoDB 数据库
 - Telegram Bot API
 - 飞书自定义机器人
+
 ## 注意事项
 1. 确保 MongoDB 服务正常运行
-2. 配置文件中的 Token 需要自行申请
+2. 配置文件中的 Telegram Bot Token 和 Lark Webhook Token 需要自行申请
 3. 推送频道的 ID 需要提前获取
+4. 建议使用 Python 3.7+
+
 ## 维护者
 [维护者信息]
 
 ## 许可证
+
+## 快速开始
+
+1. 克隆仓库
+```bash
+git clone https://github.com/xifengxx/tg-crypto-bot.git
+cd tg-crypto-bot
+```

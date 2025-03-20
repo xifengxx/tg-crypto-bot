@@ -1,0 +1,10 @@
+{
+    "keywords": ["blockchain", "区块链", "NFT", "DeFi", "Bitcoin", "Ethereum", "Web3"],
+    "telegram_token": "your_telegram_token",
+    "telegram_chat_id": "your_chat_id",
+    "interval_minutes": 30,
+    "sources": [
+        "https://example1.com",
+        "https://example2.com"
+    ]
+}
