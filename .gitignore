@@ -36,7 +36,6 @@ ENV/
 *.swo
 
 # Project specific
-config.py
 *.log
 data/
 binance_debug.html

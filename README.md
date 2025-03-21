@@ -45,9 +45,9 @@
 - task_scheduler.py
   - 定时任务管理
   - 30分钟间隔执行
+```
 
 ## 配置说明
-
 1. 复制配置文件模板：
 ```bash
 cp config.example.py config.py
