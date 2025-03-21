@@ -11,29 +11,31 @@
 - 定时任务：每 30 分钟自动执行一次抓取和推送
 
 ## 项目结构
-
-```plaintext
 .
 ├── api_binance_news_scraper.py   # Binance API 抓取实现（备用）
 ├── bot.py                        # Telegram Bot 核心实现
 ├── config.py                     # 配置文件（Bot Token、数据库等）
 ├── config.json                   # 关键词和数据源配置
-├── lark_bot.py                  # 飞书机器人实现
-├── main.py                      # 主程序入口
-├── news_database.py             # MongoDB 数据库操作
-├── news_scraper.py              # 新闻抓取核心逻辑
-├── task_scheduler.py            # 定时任务调度器
-└── test_*.py                    # 测试文件
+├── lark_bot.py                   # 飞书机器人实现
+├── main.py                       # 主程序入口
+├── news_database.py              # MongoDB 数据库操作
+├── news_scraper.py               # 新闻抓取核心逻辑
+├── task_scheduler.py             # 定时任务调度器
+└── test_*.py                     # 测试文件
+
 
 ## 核心模块说明
+
 ### 1. 数据抓取模块
 - news_scraper.py
   - 实现多交易所并行抓取
-  - 支持 Binance、OKX、Bitget、Bybit
+  - 支持 Binance、OKX、Bitget、Bybit、KuCoin 和 Gate.io
+
 ### 2. 数据存储模块
 - news_database.py
   - MongoDB 数据库操作
   - 自动去重和时间戳记录
+
 ### 3. 消息推送模块
 - bot.py
   - Telegram Bot 实现
@@ -41,13 +43,14 @@
 - lark_bot.py
   - 飞书机器人实现
   - 支持长消息自动分段
+
 ### 4. 任务调度模块
 - task_scheduler.py
   - 定时任务管理
   - 30分钟间隔执行
-```
 
 ## 配置说明
+
 1. 复制配置文件模板：
 ```bash
 cp config.example.py config.py
@@ -55,13 +58,11 @@ cp config.example.json config.json
 ```
 ### Telegram 配置
 在 config.py 中配置：
-
 - BOT_TOKEN：Telegram Bot 的访问令牌
 - CHAT_IDS：需要推送消息的群组 ID 列表
 
 ### 飞书配置
 在 config.py 中配置：
-
 - LARK_WEBHOOK_URL：飞书机器人的 Webhook 地址
 
 ### 数据库配置
@@ -72,19 +73,18 @@ cp config.example.json config.json
 1. 安装依赖
 ```bash
 pip install -r requirements.txt
- ```
-
+```
 2. 启动 MongoDB
 ```bash
 mongod --dbpath ./data/db
- ```
-
+```
 3. 运行程序
 ```bash
 python main.py
  ```
 
 ## 主要功能流程
+1. ## 主要功能流程
 1. 定时任务触发（每 30 分钟）
 2. 并行抓取各交易所公告
 3. 数据存储并去重
@@ -103,20 +103,18 @@ python main.py
 3. 推送频道的 ID 需要提前获取
 4. 建议使用 Python 3.7+
 
-## 维护者
-[维护者信息]
-
-## 许可证
-MIT License
-
-
 ## 快速开始
-
 1. 克隆仓库
 ```bash
 git clone https://github.com/xifengxx/tg-crypto-bot.git
 cd tg-crypto-bot
-```
+ ```
+
+## 维护者
+@xifengxx
+
+## 许可证
+MIT License
 
 ## 贡献指南
 1. Fork 本仓库
