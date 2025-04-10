@@ -1,7 +1,7 @@
 # news_scraper.py
 import aiohttp
 import asyncio
-# import requests
+import requests  # 添加 requests 库导入
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 from datetime import datetime, timedelta
@@ -269,104 +269,226 @@ async def fetch_bitget_news():
 
     return list(unique_news)
 
-# Bybit新闻抓取
+
+# # Bybit新闻抓取 - 旧版本，使用网页抓取，现已注释掉
+# 备份，Bybit新闻抓取 headless=False时OK，headless=True时报错 
+# async def fetch_bybit_news():
+#     url = "https://announcements.bybit.com/?category=new_crypto&page=1"
+#     news_list = []
+#     async with async_playwright() as p:
+#         # browser = await p.chromium.launch(headless=False)
+#         browser = await p.chromium.launch(
+#             headless=False,
+#             args=[      
+#                 "--disable-blink-features=AutomationControlled",
+#                 "--no-sandbox",
+#                 "--disable-setuid-sandbox",
+#                 "--disable-http2",
+#                 "--disable-cache",
+#                 "--disable-web-security",
+#                 "--disable-gl",
+#                 "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+#             ]
+#         )
+#         page = await browser.new_page()
+
+#         # # 尝试跳过防爬虫检查
+#         try:
+#             print("正在加载页面...")
+#             await page.goto(url, wait_until="domcontentloaded", timeout=240000)
+#             await page.wait_for_load_state("networkidle", timeout=60000)  # 等待网络闲置
+#             # await page.goto(url, wait_until="networkidle", timeout=240000)  # 更长的超时
+#             # 等待页面完全加载后再进行后续操作
+#             await page.wait_for_selector("div.article-list", timeout=60000)  # 等待元素加载
+#             print("页面加载完成，开始抓取内容...")
+#         except Exception as e:
+#             print(f"加载页面时出现错误: {e}")
+#             html = await page.content()
+#             print("页面HTML前1000个字符:")
+#             print(html[:1000])  # 输出HTML的前1000个字符以帮助调试
+
+
+#         # 获取页面 HTML
+#         html = await page.content()
+#         soup = BeautifulSoup(html, "html.parser")
+#         # 打印部分 HTML 内容来调试
+#         print("🔍 开始抓取 Bybit 的新闻...")
+#         print(html[:100])  # 只打印HTML的前1000个字符
+        
+#         # 获取所有新闻项
+#         news_items = soup.select("div.article-list a")
+#         news_list = []
+        
+#         for item in news_items:
+#             title = None  # 初始化 title 为空
+#             link = item["href"] if item.get("href") else None
+            
+#             # 获取标题
+#             title_tag = item.find("span")
+#             title = title_tag.text.strip() if title_tag else None
+            
+#             # 获取时间
+#             time_tag = item.find("div", class_="article-item-date")
+#             time = time_tag.text.strip() if time_tag else "No date found"
+            
+#             # 只在链接存在时添加到新闻列表
+#             if title and link:
+#                 full_link = "https://announcements.bybit.com" + link if not link.startswith("http") else link
+#                 # news_list.append({"title": title, "link": full_link, "time": time})
+#                 news_list.append({
+#                       "title": title, 
+#                       "link": full_link, 
+#                       "time": format_news_time(time),
+#                       "source": "Bybit"
+#                     })
+
+#         await browser.close()
+
+#     # 统计信息
+#     total_count = len(news_list)
+#     unique_news = {item["title"]: item for item in news_list}.values()
+#     filtered_count = len(unique_news)
+
+#     print("\n=== 抓取统计 ===")
+#     print(f"📌 总共抓取 {total_count} 条新闻")
+#     print(f"🔍 去重后剩余 {filtered_count} 条新闻\n")
+
+#     print("\n=== 抓取结果 ===\n")
+#     for item in unique_news:
+#         print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
+
+#     return list(unique_news)
+
+# 使用 Bybit 官方 API 获取新闻
 async def fetch_bybit_news():
-    url = "https://announcements.bybit.com/?category=new_crypto&page=1"
+    print("开始通过 Bybit 官方 API 抓取新闻...")
     news_list = []
-    async with async_playwright() as p:
-        # browser = await p.chromium.launch(headless=False)
-        browser = await p.chromium.launch(
-            headless=False,
-            args=[      
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-http2",
-                "--disable-cache",
-                "--disable-web-security",
-                "--disable-gl",
-                "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-            ]
-        )
-        page = await browser.new_page()
-        # page.on("console", lambda msg: print(f"Console message: {msg.text}"))
-
-        # # 监听页面的所有响应
-        # def handle_response(response):
-        #     try:
-        #         print(f"Response: {response.status} {response.url}")
-        #     except Exception as e:
-        #         print(f"Error handling response: {e}")
-
-        # # 注册监听器
-        # page.on("response", handle_response)
-
-        # # 尝试跳过防爬虫检查
+    
+    # 导入 requests 库
+    import requests
+    
+    # Bybit 公告 API 官方端点
+    url = "https://api.bybit.com/v5/announcements/index"
+    
+    # 请求参数 (根据官方文档)
+    params = {
+        "locale": "en-US",  # 使用英文，更稳定
+        "type": "new_crypto",  # 新币上线类别
+        "page": 1,
+        "limit": 20  # 获取最新的20条公告
+    }
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "application/json"
+    }
+    
+    try:
+        print(f"正在请求 Bybit API: {url}")
+        
+        # 使用同步请求，设置较长的超时时间
+        response = requests.get(url, params=params, headers=headers, timeout=60)
+        
+        print(f"API 响应状态码: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            # 检查 API 响应结构 (根据官方文档)
+            if data.get("retCode") == 0 and "result" in data:
+                result = data["result"]
+                announcements = result.get("list", [])
+                print(f"获取到 {len(announcements)} 条公告")
+                
+                for item in announcements:
+                    title = item.get("title")
+                    url = item.get("url")
+                    publish_time = item.get("publishTime")
+                    description = item.get("description", "")
+                    
+                    if title:
+                        # 处理时间
+                        formatted_time = None
+                        if publish_time:
+                            try:
+                                # API 返回的时间通常是毫秒级时间戳
+                                dt = datetime.fromtimestamp(int(publish_time) / 1000)
+                                formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+                            except Exception as e:
+                                print(f"时间格式化错误: {e}, 原始时间: {publish_time}")
+                                formatted_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+                        
+                        news_list.append({
+                            "title": title,
+                            "link": url,
+                            "time": formatted_time,
+                            "description": description,
+                            "source": "Bybit"
+                        })
+                        print(f"✅ 成功抓取: {title} | 时间: {formatted_time}")
+            else:
+                error_msg = data.get("retMsg", "未知错误")
+                print(f"API 响应错误: {error_msg}")
+                print(f"完整响应: {data}")
+        else:
+            print(f"API 请求失败，状态码: {response.status_code}")
+            print(response.text)
+    except requests.exceptions.Timeout:
+        print("API 请求超时，尝试备用端点...")
+        # 尝试备用端点
+        backup_url = "https://api.bytick.com/v5/announcements/index"
         try:
-            print("正在加载页面...")
-            await page.goto(url, wait_until="domcontentloaded", timeout=240000)
-            await page.wait_for_load_state("networkidle", timeout=60000)  # 等待网络闲置
-            # await page.goto(url, wait_until="networkidle", timeout=240000)  # 更长的超时
-            # 等待页面完全加载后再进行后续操作
-            await page.wait_for_selector("div.article-list", timeout=60000)  # 等待元素加载
-            print("页面加载完成，开始抓取内容...")
+            response = requests.get(backup_url, params=params, headers=headers, timeout=60)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("retCode") == 0 and "result" in data:
+                    result = data["result"]
+                    announcements = result.get("list", [])
+                    print(f"备用 API 获取到 {len(announcements)} 条公告")
+                    
+                    for item in announcements:
+                        title = item.get("title")
+                        url = item.get("url")
+                        publish_time = item.get("publishTime")
+                        description = item.get("description", "")
+                        
+                        if title:
+                            # 处理时间
+                            formatted_time = None
+                            if publish_time:
+                                try:
+                                    dt = datetime.fromtimestamp(int(publish_time) / 1000)
+                                    formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+                                except Exception as e:
+                                    print(f"时间格式化错误: {e}, 原始时间: {publish_time}")
+                                    formatted_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+                            
+                            news_list.append({
+                                "title": title,
+                                "link": url,
+                                "time": formatted_time,
+                                "description": description,
+                                "source": "Bybit"
+                            })
+                            print(f"✅ 成功抓取: {title} | 时间: {formatted_time}")
+                else:
+                    print(f"备用 API 响应错误: {data.get('retMsg', '未知错误')}")
+            else:
+                print(f"备用 API 请求失败，状态码: {response.status_code}")
         except Exception as e:
-            print(f"加载页面时出现错误: {e}")
-            html = await page.content()
-            print("页面HTML前1000个字符:")
-            print(html[:1000])  # 输出HTML的前1000个字符以帮助调试
-
-        # # 进行滚动，确保页面加载更多内容
-        # for i in range(3):  # 滚动三次
-        #     await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        #     await page.mouse.wheel(0, 1000)  # 模拟页面滚动
-        #     await page.wait_for_timeout(3000)  # 等待3秒
-
-        # # 增加显式等待，等待页面完全渲染
-        # await page.wait_for_timeout(5000)  # 等待5秒，确保异步加载的内容完成
-
-        # 获取页面 HTML
-        html = await page.content()
-        soup = BeautifulSoup(html, "html.parser")
-        # 打印部分 HTML 内容来调试
-        print("🔍 开始抓取 Bybit 的新闻...")
-        print(html[:100])  # 只打印HTML的前1000个字符
-        
-        # 获取所有新闻项
-        news_items = soup.select("div.article-list a")
-        news_list = []
-        
-        for item in news_items:
-            title = None  # 初始化 title 为空
-            link = item["href"] if item.get("href") else None
-            
-            # 获取标题
-            title_tag = item.find("span")
-            title = title_tag.text.strip() if title_tag else None
-            
-            # 获取时间
-            time_tag = item.find("div", class_="article-item-date")
-            time = time_tag.text.strip() if time_tag else "No date found"
-            
-            # 只在链接存在时添加到新闻列表
-            if title and link:
-                full_link = "https://announcements.bybit.com" + link if not link.startswith("http") else link
-                # news_list.append({"title": title, "link": full_link, "time": time})
-                news_list.append({
-                      "title": title, 
-                      "link": full_link, 
-                      "time": format_news_time(time),
-                      "source": "Bybit"
-                    })
-
-        await browser.close()
-
+            print(f"备用 API 抓取出错: {e}")
+    except Exception as e:
+        print(f"Bybit API 抓取出错: {e}")
+        print(f"\n错误详细信息:")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+    
     # 统计信息
     total_count = len(news_list)
     unique_news = {item["title"]: item for item in news_list}.values()
     filtered_count = len(unique_news)
 
-    print("\n=== 抓取统计 ===")
+    print("\n=== Bybit 抓取统计 ===")
     print(f"📌 总共抓取 {total_count} 条新闻")
     print(f"🔍 去重后剩余 {filtered_count} 条新闻\n")
 
@@ -375,7 +497,6 @@ async def fetch_bybit_news():
         print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
 
     return list(unique_news)
-
 
 # 统一处理新闻时间格式
 def format_news_time(news_time):
@@ -609,23 +730,48 @@ async def fetch_gate_news():
     news_list = []
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(
+            headless=True,
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",  # 减少内存使用
+                "--disable-gpu",  # 禁用GPU加速
+            ],
+            timeout=120000  # 增加浏览器启动超时时间到2分钟
+        )
         context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            viewport={"width": 1920, "height": 1080}
         )
         page = await context.new_page()
         
         try:
             print("正在加载 Gate.io 页面...")
-            await page.goto(url, wait_until="domcontentloaded", timeout=60000)
-            await page.wait_for_selector("div.article-list-box", timeout=60000)
+            # 设置请求拦截，类似于Binance的处理方式
+            await page.route("**/*", lambda route: route.continue_())
             
+            # 增加页面加载超时时间到2分钟
+            await page.goto(url, wait_until="networkidle", timeout=120000)
+            print("页面初步加载完成")
+            
+            # 等待页面加载完成
+            await page.wait_for_timeout(5000)
+            
+            # 使用更精确的选择器
+            selector = "div.flex.flex-col.gap-6.sm\\:gap-8 a"
+            print(f"等待选择器: {selector}")
+            await page.wait_for_selector(selector, timeout=60000)
+            
+            # 获取页面 HTML
             html = await page.content()
             soup = BeautifulSoup(html, "html.parser")
             print("🔍 开始抓取 Gate.io 的新闻...")
-            
-            # 获取所有新闻项
-            news_items = soup.select("div.article-list-item")
+            print(f"页面HTML前100个字符: {html[:100]}")  # 打印页面开头部分
+            # 获取所有新闻项，使用更精确的选择器
+            news_items = soup.select("div.flex.flex-col.gap-6.sm\\:gap-8 a")
+            # print(f"找到 {len(news_items)} 个新闻项")
             
             for item in news_items:
                 title = None  # 初始化 title 为空
@@ -633,16 +779,19 @@ async def fetch_gate_news():
                 time = "No date found"
                 
                 # 获取标题
-                title_tag = item.find("span", class_="overflow-ellipsis article-list-item-title-con")
+                title_tag = item.find("p", class_="font-medium text-subtitle line-clamp-2")
                 title = title_tag.text.strip() if title_tag else None
                 
                 # 获取链接
-                link_tag = item.find("a", href=True)
-                link = "https://www.gate.io" + link_tag["href"] if link_tag else None
+                link = "https://www.gate.io" + item["href"] if item.get("href") else None
                 
-                # 获取时间
-                time_tag = item.find("span", class_="article-list-info-timer")
-                time = time_tag.text.strip() if time_tag else "No date found"
+                # 获取时间 - 使用图片中显示的结构
+                time_div = item.find("div", class_="flex gap-5 text-body-s text-t3")
+                if time_div:
+                    time_inner_div = time_div.find("div", class_="flex items-center gap-1")
+                    if time_inner_div:
+                        time_span = time_inner_div.find("span")
+                        time = time_span.text.strip() if time_span else "No date found"
                 
                 if title and link:
                     news_list.append({
@@ -651,9 +800,15 @@ async def fetch_gate_news():
                         "time": format_news_time(time),
                         "source": "Gate.io"
                     })
+                    # print(f"✅ 成功抓取: {title} | 时间: {time}")
+                else:
+                    print(f"⚠️ 跳过无效新闻项: 标题={title}, 链接={link}")
                     
         except Exception as e:
             print(f"Gate.io 抓取出错: {e}")
+            print(f"\n错误详细信息:")
+            print(f"错误类型: {type(e).__name__}")
+            print(f"错误信息: {str(e)}")
             html = await page.content()
             print("页面HTML前1000个字符:")
             print(html[:1000])  # 输出HTML帮助调试
