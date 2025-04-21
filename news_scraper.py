@@ -425,7 +425,7 @@ async def fetch_bybit_news():
                             "description": description,
                             "source": "Bybit"
                         })
-                        print(f"✅ 成功抓取: {title} | 时间: {formatted_time}")
+                        # print(f"✅ 成功抓取: {title} | 时间: {formatted_time}")
             else:
                 error_msg = data.get("retMsg", "未知错误")
                 print(f"API 响应错误: {error_msg}")
@@ -832,26 +832,32 @@ async def fetch_gate_news():
 
 # 更新 main 函数
 async def main():
-    print("抓取 Binance 新闻:")
-    binance_news = await fetch_binance_news()
+    all_news = []
     
-    print("抓取 OKX 新闻:")
-    okx_news = await fetch_okx_news()
-
-    print("抓取 Bitget 新闻:")
-    bitget_news = await fetch_bitget_news()
-
-    print("抓取 Bybit 新闻:")
-    bybit_news = await fetch_bybit_news()
-
-    # print("抓取 Coinbase 新闻:")
-    # coinbase_news = await fetch_coinbase_news()
-
-    print("抓取 KuCoin 新闻:")
-    kucoin_news = await fetch_kucoin_news()
-
-    print("抓取 Gate.io 新闻:")
-    gate_news = await fetch_gate_news()
+    # 使用 gather 并捕获异常，确保一个任务失败不会影响其他任务
+    tasks = [
+        fetch_binance_news(),
+        fetch_okx_news(),
+        fetch_bitget_news(),
+        fetch_bybit_news(),
+        fetch_kucoin_news(),
+        fetch_gate_news()
+    ]
+    
+    # 并行执行所有任务，忽略异常
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # 处理结果
+    for i, result in enumerate(results):
+        source = ["Binance", "OKX", "Bitget", "Bybit", "KuCoin", "Gate.io"][i]
+        if isinstance(result, Exception):
+            print(f"❌ {source} 抓取失败: {result}")
+        else:
+            print(f"✅ {source} 抓取成功: 获取到 {len(result)} 条新闻")
+            all_news.extend(result)
+    
+    print(f"\n总共获取到 {len(all_news)} 条新闻")
+    return all_news
 
 if __name__ == '__main__':
     asyncio.run(main())
