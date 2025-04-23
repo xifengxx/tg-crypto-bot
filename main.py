@@ -1,57 +1,56 @@
 import asyncio
 import logging
-from bot import start_bot  # ✅ 这里修改：导入 `start_bot()` 作为异步函数
-from task_scheduler import job  # ✅ 只导入 `job`，不导入 `scheduler`
+from news_scraper import main as scraper_main
+from news_database import news_collection
+from bot import send_latest_news, start_bot
+from task_scheduler import start_scheduler  # 现在这个导入应该能正常工作了
+import os
 
 # 设置日志
-# logging.basicConfig(level=logging.INFO)
-# logging.info("🚀 Bot and Scheduler are starting...")
-
-# 设置日志
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logging.getLogger("httpx").setLevel(logging.WARNING)  # ✅ 隐藏 httpx 的 INFO 日志
-logging.info("🚀 Bot and Scheduler are starting...")
-
-async def run_scheduler():
-    """
-    1. 每 30 分钟执行一次任务（不再在这里执行首次任务）
-    """
-    while True:
-        logging.info("⏳ 等待 30 分钟后执行下一次任务...")
-        await asyncio.sleep(30 * 60)  # ✅ 每 30 分钟运行一次
-        logging.info("🔍 开始执行定时任务...")
-        await job()
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
 async def main():
     """
-    1. 启动 Telegram 机器人
-    2. 立即执行一次定时任务
-    3. 启动定时任务（每 30 分钟执行）
-    """    
-    logging.info("✅ 启动 Telegram Bot 和定时任务...")
-
-    # ✅ **1️⃣ 先执行一次 `job()`**
-    logging.info("🔍 **首次执行 job()**")
-    await job()
-    logging.info("✅ 首次任务 job() 执行完成")
-
-    # ✅ **2️⃣ 并行启动 Bot 和定时任务**
-    bot_task = asyncio.create_task(start_bot())  
-    scheduler_task = asyncio.create_task(run_scheduler())  
-
-    # ✅ 让两个任务并行
-    await asyncio.gather(bot_task, scheduler_task)  
+    主函数，协调各个模块的运行
+    """
+    try:
+        # 启动 Telegram Bot
+        await start_bot()
+        logger.info("Telegram Bot 已启动")
+        
+        # 检查是否在 Railway 环境中运行
+        if os.environ.get('RAILWAY_ENVIRONMENT'):
+            logger.info("在 Railway 环境中运行")
+            
+            # 安装 Playwright 依赖
+            import subprocess
+            logger.info("安装 Playwright 依赖...")
+            subprocess.run(["playwright", "install", "chromium"], check=True)
+            logger.info("Playwright 依赖安装完成")
+        
+        # 启动定时任务调度器
+        start_scheduler()
+        logger.info("定时任务调度器已启动")
+        
+        # 立即执行一次抓取任务
+        logger.info("开始执行首次抓取任务...")
+        news_list = await scraper_main()
+        logger.info(f"首次抓取完成，获取到 {len(news_list)} 条新闻")
+        
+        # 发送最新新闻
+        await send_latest_news()
+        
+        # 保持程序运行
+        while True:
+            await asyncio.sleep(3600)  # 每小时检查一次
+            
+    except Exception as e:
+        logger.error(f"程序运行出错: {e}")
+        raise
 
 if __name__ == "__main__":
-    try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())  # ✅ 不会触发 `RuntimeError`
-        # asyncio.run(main())  # ✅ 运行主协程
-    except RuntimeError as e:
-        if "This event loop is already running" in str(e):
-            logging.warning("⚠️ 事件循环已在运行，切换到 `asyncio.create_task()`")
-            asyncio.create_task(main())  # ✅ 兼容 Jupyter Notebook 或其他环境
-            # loop = asyncio.get_event_loop()
-            # loop.run_until_complete(main())  # ✅ 兼容 Jupyter Notebook 或其他环境
-        else:
-            raise
+    asyncio.run(main())

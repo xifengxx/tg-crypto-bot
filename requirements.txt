@@ -1,5 +1,8 @@
-requests
-beautifulsoup4
+python-telegram-bot>=20.0
 pymongo
+playwright
+beautifulsoup4
+aiohttp
+requests
+asyncio
 apscheduler
-python-telegram-bot

@@ -48,20 +48,66 @@ async def job():
 
 
 
-if __name__ == "__main__":
-    loop = asyncio.new_event_loop()  # 创建一个新的事件循环
-    asyncio.set_event_loop(loop)  # 设置当前事件循环为新创建的事件循环
+# 添加 start_scheduler 函数，同时保留原有功能
 
-    scheduler = AsyncIOScheduler(event_loop=loop)  # 将事件循环传递给调度器
+import asyncio
+import logging
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from news_scraper import main as scraper_main
+from bot import send_latest_news
+import os
 
-    # ✅ 启动前先运行一次，然后每 30 分钟执行一次
-    loop.run_until_complete(job())
-    scheduler.add_job(job, 'interval', minutes=30)
-    # scheduler.add_job(job, 'interval', hours=1)
+# 设置日志
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
+# 创建调度器
+scheduler = AsyncIOScheduler()
+
+# 定义任务函数
+async def scheduled_task():
+    """
+    定时执行的任务：抓取新闻并发送
+    """
+    try:
+        logger.info("开始执行定时抓取任务...")
+        news_list = await scraper_main()
+        logger.info(f"定时抓取完成，获取到 {len(news_list)} 条新闻")
+        
+        # 发送最新新闻
+        await send_latest_news()
+    except Exception as e:
+        logger.error(f"定时任务执行出错: {e}")
+
+def start_scheduler():
+    """
+    启动定时任务调度器
+    """
+    # 添加定时任务，每30分钟执行一次
+    scheduler.add_job(scheduled_task, 'interval', minutes=30, id='news_scraper')
+    
     # 启动调度器
     scheduler.start()
-    print("✅ 任务调度器已启动，每 30 分钟抓取 & 推送币安新闻")
+    logger.info("定时任务调度器已启动，每30分钟执行一次抓取任务")
+    
+    return scheduler
 
-    # 启动事件循环，保持任务运行
-    loop.run_forever()
+# 如果直接运行此文件，则启动调度器并保持运行
+if __name__ == "__main__":
+    # 创建事件循环
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    # 启动调度器
+    scheduler = start_scheduler()
+    
+    try:
+        # 保持程序运行
+        loop.run_forever()
+    except (KeyboardInterrupt, SystemExit):
+        # 关闭调度器
+        scheduler.shutdown()
+        logger.info("定时任务调度器已关闭")

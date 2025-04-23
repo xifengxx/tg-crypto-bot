@@ -1,14 +1,48 @@
 # news_database.py
-import pymongo
+import os
+from pymongo import MongoClient
 from config import MONGO_URI
 from datetime import datetime  # 添加这一行
 
-# 连接到MongoDB
-client = pymongo.MongoClient(MONGO_URI)
+# 在文件开头添加
+import os
+from pymongo import MongoClient
+from config import MONGO_URI
 
-# 选择数据库
-db = client['crypto_news']  # 这里选择的数据库名称是 'crypto_news'
-news_collection = db['news']  # 选择的集合名称是 'news'
+# 连接到 MongoDB
+try:
+    client = MongoClient(MONGO_URI)
+    
+    # 根据环境选择数据库名称
+    db_name = "crypto_news" if os.environ.get('RAILWAY_ENVIRONMENT') else "crypto_news_local"
+    db = client[db_name]
+    
+    # 创建集合
+    news_collection = db["news"]
+    
+    # 创建索引以确保新闻标题的唯一性
+    news_collection.create_index([("title", 1)], unique=True)
+    
+    print(f"✅ 成功连接到 MongoDB: {MONGO_URI}")
+except Exception as e:
+    print(f"❌ MongoDB 连接失败: {e}")
+    # 创建一个备用的内存存储，以防数据库连接失败
+    class FallbackCollection:
+        def __init__(self):
+            self.data = []
+            
+        def insert_one(self, document):
+            self.data.append(document)
+            return True
+            
+        def find(self, query=None):
+            return self.data
+            
+        def create_index(self, *args, **kwargs):
+            pass
+    
+    news_collection = FallbackCollection()
+    print("⚠️ 使用内存存储作为备用")
 
 # 插入新闻到数据库
 def store_news(news_list):
