@@ -30,6 +30,7 @@ def signal_handler(sig, frame):
     # 退出程序
     sys.exit(0)
 
+# 修改 main 函数，避免使用 Playwright
 async def main():
     """
     主函数，协调各个模块的运行
@@ -54,11 +55,9 @@ async def main():
         if os.environ.get('RAILWAY_ENVIRONMENT'):
             logger.info("在 Railway 环境中运行")
             
-            # 不再尝试安装 Playwright，而是使用备用的抓取方法
-            logger.info("Railway 环境下，将使用备用的抓取方法")
-            
-            # 修改环境变量，告诉 news_scraper.py 使用备用方法
+            # 设置环境变量，告诉 news_scraper.py 使用备用方法
             os.environ['USE_BACKUP_SCRAPER'] = 'true'
+            logger.info("已设置使用备用抓取方法")
         
         # 启动定时任务调度器
         scheduler = start_scheduler()
@@ -72,8 +71,16 @@ async def main():
         news_list = await scraper_main()
         logger.info(f"首次抓取完成，获取到 {len(news_list)} 条新闻")
         
-        # 发送最新新闻
-        await send_latest_news()
+        # 从 news_database 导入 store_news
+        from news_database import store_news
+        new_count = store_news(news_list)
+        
+        # 只有当有新内容时才发送
+        if new_count > 0:
+            logger.info(f"发现 {new_count} 条新新闻，准备推送...")
+            await send_latest_news()
+        else:
+            logger.info("无新内容，跳过推送")
         
         # 保持程序运行
         while True:

@@ -50,6 +50,7 @@ async def start(update: Update, context: CallbackContext):
     # logger.info(f"Received /start command from {update.message.chat_id}")  # 日志输出
     await update.message.reply_text('Hello! I am your Crypto News Bot.')
 
+# 修改 send_latest_news 函数中的 MongoDB 查询
 async def send_latest_news():
     """
     从数据库获取最新的新闻，并推送到 Telegram 频道 和 Lark
@@ -57,8 +58,14 @@ async def send_latest_news():
     now = datetime.utcnow()
     one_hour_ago = now - timedelta(hours=1)
 
-    # 查询最近 1 小时的新闻
-    all_news = list(news_collection.find({"created_at": {"$gte": one_hour_ago}}).sort("created_at", -1))
+    # 查询最近 1 小时的新闻 - 修复 sort() 方法的使用
+    try:
+        # 正确使用 sort 方法，使用关键字参数
+        all_news = list(news_collection.find({"created_at": {"$gte": one_hour_ago}}).sort("created_at", -1))
+    except TypeError:
+        # 备用方法，适用于 FallbackCollection
+        logger.warning("使用备用方法获取新闻")
+        all_news = list(news_collection.find({"created_at": {"$gte": one_hour_ago}}))
 
     if not all_news:
         print("⚠️ 没有最新新闻，不发送消息")

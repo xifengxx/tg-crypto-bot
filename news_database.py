@@ -2,6 +2,7 @@
 import os
 from pymongo import MongoClient
 import logging
+from datetime import datetime, timedelta  # 添加 datetime 导入
 
 # 设置日志
 logging.basicConfig(
@@ -47,10 +48,64 @@ except Exception as e:
             return True
             
         def find(self, query=None):
+            # 简单实现查询功能
+            if not query:
+                return self.data
+            
+            # 处理时间查询
+            if query.get("created_at", {}).get("$gte"):
+                min_time = query["created_at"]["$gte"]
+                return [doc for doc in self.data if doc.get("created_at", datetime.min) >= min_time]
+            
             return self.data
             
         def create_index(self, *args, **kwargs):
             pass
+        
+        def sort(self, field_name=None, direction=None):
+            """
+            模拟 MongoDB 的 sort 方法
+            """
+            # 简单实现，不做实际排序
+            return self
+        
+        def find_one(self, query):
+            """
+            模拟 MongoDB 的 find_one 方法
+            """
+            for doc in self.data:
+                match = True
+                for key, value in query.items():
+                    if key not in doc or doc[key] != value:
+                        match = False
+                        break
+                if match:
+                    return doc
+            return None
+        
+        def update_one(self, filter_query, update_query):
+            """
+            模拟 MongoDB 的 update_one 方法
+            """
+            for doc in self.data:
+                match = True
+                for key, value in filter_query.items():
+                    if key == "_id":
+                        # 简单处理 _id 匹配
+                        if str(doc.get("_id")) != str(value):
+                            match = False
+                            break
+                    elif key not in doc or doc[key] != value:
+                        match = False
+                        break
+                
+                if match:
+                    # 应用更新
+                    if "$set" in update_query:
+                        for key, value in update_query["$set"].items():
+                            doc[key] = value
+                    return True
+            return False
     
     news_collection = FallbackCollection()
     logger.warning("⚠️ 使用内存存储作为备用")
