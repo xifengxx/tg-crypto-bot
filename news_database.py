@@ -1,13 +1,24 @@
 # news_database.py
 import os
 from pymongo import MongoClient
-from config import MONGO_URI
-from datetime import datetime  # 添加这一行
+import logging
 
-# 在文件开头添加
-import os
-from pymongo import MongoClient
-from config import MONGO_URI
+# 设置日志
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# 尝试从 config 导入 MONGO_URI，如果失败则使用环境变量
+try:
+    from config import MONGO_URI
+    logger.info("成功从 config.py 导入 MONGO_URI")
+except ImportError:
+    logger.warning("无法导入 config 模块，将使用环境变量")
+    # 从环境变量获取 MongoDB URI
+    MONGO_URI = os.environ.get('MONGODB_URI', 'mongodb://localhost:27017')
+    logger.info(f"使用环境变量中的 MONGO_URI: {MONGO_URI}")
 
 # 连接到 MongoDB
 try:
@@ -23,9 +34,9 @@ try:
     # 创建索引以确保新闻标题的唯一性
     news_collection.create_index([("title", 1)], unique=True)
     
-    print(f"✅ 成功连接到 MongoDB: {MONGO_URI}")
+    logger.info(f"✅ 成功连接到 MongoDB: {MONGO_URI}")
 except Exception as e:
-    print(f"❌ MongoDB 连接失败: {e}")
+    logger.error(f"❌ MongoDB 连接失败: {e}")
     # 创建一个备用的内存存储，以防数据库连接失败
     class FallbackCollection:
         def __init__(self):
@@ -42,7 +53,7 @@ except Exception as e:
             pass
     
     news_collection = FallbackCollection()
-    print("⚠️ 使用内存存储作为备用")
+    logger.warning("⚠️ 使用内存存储作为备用")
 
 # 插入新闻到数据库
 def store_news(news_list):

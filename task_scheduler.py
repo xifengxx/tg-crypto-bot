@@ -50,11 +50,10 @@ async def job():
 
 # 添加 start_scheduler 函数，同时保留原有功能
 
+# task_scheduler.py
 import asyncio
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from news_scraper import main as scraper_main
-from bot import send_latest_news
 import os
 
 # 设置日志
@@ -63,6 +62,20 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# 尝试导入所需模块
+try:
+    from news_scraper import main as scraper_main
+    from bot import send_latest_news
+except ImportError as e:
+    logger.error(f"导入模块失败: {e}")
+    # 创建备用函数
+    async def scraper_main():
+        logger.warning("无法导入 news_scraper 模块，返回空列表")
+        return []
+    
+    async def send_latest_news():
+        logger.warning("无法导入 bot 模块，跳过发送消息")
 
 # 创建调度器
 scheduler = AsyncIOScheduler()

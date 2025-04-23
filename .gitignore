@@ -1,6 +1,10 @@
-# 配置文件
+# 忽略配置文件中的敏感信息
 config.py
 config.json
+
+# 不忽略示例配置文件
+!config.example.py
+!config.example.json
 
 # Python
 __pycache__/

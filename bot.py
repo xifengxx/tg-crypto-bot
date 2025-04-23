@@ -1,17 +1,49 @@
 
+# bot.py
 import logging
+import os
 from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, CallbackContext
-from config import TOKEN, CHAT_IDS
-from news_database import news_collection
 from datetime import datetime, timedelta
 import asyncio
-from lark_bot import send_news_to_lark  # 导入 Lark 发送消息的函数
 
 # 设置日志
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# 尝试从 config 导入 TOKEN 和 CHAT_IDS，如果失败则使用环境变量
+try:
+    from config import TOKEN, CHAT_IDS
+    logger.info("成功从 config.py 导入 TOKEN 和 CHAT_IDS")
+except ImportError:
+    logger.warning("无法导入 config 模块，将使用环境变量")
+    # 从环境变量获取 TOKEN 和 CHAT_IDS
+    TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+    CHAT_IDS_STR = os.environ.get('TELEGRAM_CHAT_IDS', '')
+    CHAT_IDS = CHAT_IDS_STR.split(',') if CHAT_IDS_STR else []
+    logger.info(f"使用环境变量中的 TOKEN 和 CHAT_IDS: {CHAT_IDS}")
+
+# 尝试导入 news_collection 和 lark_bot
+try:
+    from news_database import news_collection
+except ImportError as e:
+    logger.error(f"导入 news_database 模块失败: {e}")
+    # 创建一个备用的集合
+    class FallbackCollection:
+        def __init__(self):
+            self.data = []
+        def find(self, query=None):
+            return self.data
+    news_collection = FallbackCollection()
+
+try:
+    from lark_bot import send_news_to_lark
+except ImportError as e:
+    logger.error(f"导入 lark_bot 模块失败: {e}")
+    # 创建一个备用的发送函数
+    def send_news_to_lark(message):
+        logger.warning(f"Lark 发送消息失败，无法导入 lark_bot 模块")
 
 # 启动 机器人 /start 命令
 async def start(update: Update, context: CallbackContext):

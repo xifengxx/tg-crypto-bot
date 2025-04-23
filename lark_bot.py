@@ -1,51 +1,52 @@
+# lark_bot.py
 import requests
-from config import LARK_WEBHOOK_URL  # 从 config.py 中获取 Lark Webhook URL
+import json
+import logging
+import os
 
-def send_lark_message(content):
+# 设置日志
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# 尝试从 config 导入 LARK_WEBHOOK_URL，如果失败则使用环境变量
+try:
+    from config import LARK_WEBHOOK_URL
+    logger.info("成功从 config.py 导入 LARK_WEBHOOK_URL")
+except ImportError:
+    logger.warning("无法导入 config 模块，将使用环境变量")
+    # 从环境变量获取 LARK_WEBHOOK_URL
+    LARK_WEBHOOK_URL = os.environ.get('LARK_WEBHOOK_URL')
+    logger.info(f"使用环境变量中的 LARK_WEBHOOK_URL")
+
+def send_news_to_lark(message):
     """
-    向 Lark 群组发送消息
-    :param content: 消息内容（支持 Markdown 格式）
+    发送消息到 Lark 机器人
     """
     if not LARK_WEBHOOK_URL:
-        print("LARK Webhook URL is not set in config.py.")
+        logger.warning("未配置 LARK_WEBHOOK_URL，跳过发送")
         return
-
-    headers = {"Content-Type": "application/json"}
-    data = {
-        "msg_type": "text",  # 消息类型为文本
-        "content": {
-            "text": content  # 消息内容
-        }
-    }
+    
     try:
-        response = requests.post(LARK_WEBHOOK_URL, json=data, headers=headers)
+        # 构建 Lark 消息
+        payload = {
+            "msg_type": "text",
+            "content": {
+                "text": message
+            }
+        }
+        
+        # 发送请求
+        response = requests.post(
+            LARK_WEBHOOK_URL,
+            headers={"Content-Type": "application/json"},
+            data=json.dumps(payload)
+        )
+        
+        # 检查响应
         if response.status_code == 200:
-            print("Message sent to Lark successfully!")
+            logger.info("成功发送消息到 Lark")
         else:
-            print(f"Failed to send message to Lark: {response.status_code}, {response.text}")
+            logger.error(f"发送消息到 Lark 失败: {response.status_code} {response.text}")
     except Exception as e:
-        print(f"Error sending message to Lark: {e}")
-
-def split_message(content, max_length=4000):
-    """
-    将超长消息分割为多段
-    :param content: 原始消息内容
-    :param max_length: 每段的最大长度
-    """
-    return [content[i:i + max_length] for i in range(0, len(content), max_length)]
-
-def send_news_to_lark(news_message):
-    """
-    将分块的消息发送到 Lark
-    :param news_message: 完整的新闻内容
-    """
-    if not news_message:
-        print("No news to send to Lark.")
-        return
-
-    # 分块消息
-    messages = split_message(news_message)
-
-    # 逐块发送
-    for msg in messages:
-        send_lark_message(msg)
+        logger.error(f"发送消息到 Lark 出错: {e}")
