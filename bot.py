@@ -51,6 +51,7 @@ async def start(update: Update, context: CallbackContext):
     await update.message.reply_text('Hello! I am your Crypto News Bot.')
 
 # 修改 send_latest_news 函数中的 MongoDB 查询
+# 修改 send_latest_news 函数，添加消息分割功能
 async def send_latest_news():
     """
     从数据库获取最新的新闻，并推送到 Telegram 频道 和 Lark
@@ -58,7 +59,7 @@ async def send_latest_news():
     now = datetime.utcnow()
     one_hour_ago = now - timedelta(hours=1)
 
-    # 查询最近 1 小时的新闻 - 修复 sort() 方法的使用
+    # 查询最近 1 小时的新闻
     try:
         # 正确使用 sort 方法，使用关键字参数
         all_news = list(news_collection.find({"created_at": {"$gte": one_hour_ago}}).sort("created_at", -1))
@@ -72,62 +73,67 @@ async def send_latest_news():
         logger.info("没有最新新闻，跳过发送")
         return
 
-    message = "📢 **最新交易所（Binance/OKX/Bitget/Bybit/Kucoin/Gate）上币公告** 📢\n\n"
-    for news in all_news:
-        # message += f"📌 {news['title']}\n🔗 [阅读详情]({news['link']})\n\n"
-
-        # 格式化时间
-        # 如果时间包含 "Published on"，则处理这个特殊格式
-        # if news["time"].startswith("Published on"):
-        #     try:
-        #         news_time = datetime.strptime(news["time"][14:], "%b %d, %Y")  # 去掉 "Published on" 前缀并解析
-        #         formatted_time = news_time.strftime("%Y-%m-%d %H:%M:%S UTC")
-        #     except ValueError:
-        #         print(f"❌ 无法解析时间: {news['time']}")
-        #         logger.error(f"无法解析时间: {news['time']}")
-        #         continue
-        # else:
-        #     # 解析格式为 'YYYY-MM-DD' 的时间
-        #     try:
-        #         news_time = datetime.strptime(news["time"], "%Y-%m-%d")
-        #         formatted_time = news_time.strftime("%Y-%m-%d %H:%M:%S UTC")
-        #     except ValueError:
-        #         print(f"❌ 无法解析时间: {news['time']}")
-        #         logger.error(f"无法解析时间: {news['time']}")
-        #         continue
-        
-        # 直接使用数据库中已格式化的时间
-        formatted_time = news["time"]  # 时间已经是正确的格式
-        # 获取来源，如果没有，则使用默认值
-        source = news.get('source', 'Unknown Source')
-
-        # 构建消息
-        message += f"📌 来自 {source} 的新闻: {news['title']}\n"
-        message += f"⏰ 发布时间: {formatted_time}\n"
-        message += f"🔗 [阅读详情]({news['link']})\n\n"
-
-    # 发送到 多个Telegram 频道
-    try:
-        application = Application.builder().token(TOKEN).build()
-
-        async with application:
-            for chat_id in CHAT_IDS:  # 遍历每个 chat_id
-                await application.bot.send_message(
-                    chat_id=chat_id,
-                    text=message,
-                    parse_mode="Markdown"
-                )
-
-        print(f"✅ 成功推送 {len(all_news)} 条新闻")
-        logger.info(f"成功推送 {len(all_news)} 条新闻到 Telegram")
+    # 构建消息
+    message = f"🔔 最新加密货币新闻 ({len(all_news)}条):\n\n"
     
+    # 添加每条新闻
+    news_items = []
+    for news in all_news:
+        news_text = f"📌 {news.get('title', '无标题')}\n"
+        news_text += f"🔗 {news.get('link', '#')}\n"
+        news_text += f"📅 {news.get('time', '未知时间')}\n"
+        news_text += f"📰 来源: {news.get('source', '未知来源')}\n\n"
+        news_items.append(news_text)
+    
+    # 发送到 Telegram
+    try:
+        # 分割消息，每条消息最多包含 10 条新闻或不超过 4000 字符
+        telegram_messages = []
+        current_message = message
+        current_length = len(current_message)
+        
+        for item in news_items:
+            # 如果添加这条新闻后消息长度超过 4000 字符，或者已经包含 10 条新闻，则创建新消息
+            if current_length + len(item) > 4000 or len(telegram_messages) * 10 >= len(telegram_messages) * 10 + telegram_messages.count(current_message):
+                telegram_messages.append(current_message)
+                current_message = f"🔔 最新加密货币新闻 (续):\n\n{item}"
+                current_length = len(current_message)
+            else:
+                current_message += item
+                current_length += len(item)
+        
+        # 添加最后一条消息
+        if current_message != message:
+            telegram_messages.append(current_message)
+        
+        # 如果没有分割，确保至少有一条消息
+        if not telegram_messages:
+            telegram_messages = [message]
+        
+        # 发送所有消息
+        for chat_id in CHAT_IDS:
+            for msg in telegram_messages:
+                await application.bot.send_message(chat_id=chat_id, text=msg, disable_web_page_preview=True)
+        
+        print(f"✅ 成功推送 {len(all_news)} 条新闻到 Telegram")
     except Exception as e:
         print(f"❌ 发送新闻失败: {e}")
-
+    
     # 发送到 Lark
-    send_news_to_lark(message)  # 调用 lark_bot 中的函数将消息发送到 Lark
-    print(f"✅ 成功推送 {len(all_news)} 条新闻到 Lark")
-    logger.info(f"成功推送 {len(all_news)} 条新闻到 Lark")
+    try:
+        # 构建 Lark 消息
+        lark_message = f"🔔 最新加密货币新闻 ({len(all_news)}条):\n\n"
+        for news in all_news:
+            lark_message += f"📌 {news.get('title', '无标题')}\n"
+            lark_message += f"🔗 {news.get('link', '#')}\n"
+            lark_message += f"📅 {news.get('time', '未知时间')}\n"
+            lark_message += f"📰 来源: {news.get('source', '未知来源')}\n\n"
+        
+        # 发送到 Lark
+        send_news_to_lark(lark_message)
+        print(f"✅ 成功推送 {len(all_news)} 条新闻到 Lark")
+    except Exception as e:
+        print(f"❌ 发送到 Lark 失败: {e}")
 
 # def main():
 #     """启动 Telegram 机器人"""

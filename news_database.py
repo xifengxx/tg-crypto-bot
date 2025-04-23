@@ -2,7 +2,7 @@
 import os
 from pymongo import MongoClient
 import logging
-from datetime import datetime, timedelta  # 添加 datetime 导入
+from datetime import datetime, timedelta
 
 # 设置日志
 logging.basicConfig(
@@ -20,10 +20,19 @@ except ImportError:
     # 从环境变量获取 MongoDB URI
     MONGO_URI = os.environ.get('MONGODB_URI', 'mongodb://localhost:27017')
     logger.info(f"使用环境变量中的 MONGO_URI: {MONGO_URI}")
+    
+    # 检查 MongoDB URI 格式
+    if MONGO_URI == 'mongodb://:@:' or not MONGO_URI or ':@:' in MONGO_URI:
+        logger.error("MongoDB URI 格式不正确，使用默认本地连接")
+        MONGO_URI = 'mongodb://localhost:27017'
 
 # 连接到 MongoDB
 try:
-    client = MongoClient(MONGO_URI)
+    # 添加连接超时设置
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    
+    # 测试连接
+    client.admin.command('ping')
     
     # 根据环境选择数据库名称
     db_name = "crypto_news" if os.environ.get('RAILWAY_ENVIRONMENT') else "crypto_news_local"
@@ -38,6 +47,8 @@ try:
     logger.info(f"✅ 成功连接到 MongoDB: {MONGO_URI}")
 except Exception as e:
     logger.error(f"❌ MongoDB 连接失败: {e}")
+    logger.exception("MongoDB 连接详细错误")
+    
     # 创建一个备用的内存存储，以防数据库连接失败
     class FallbackCollection:
         def __init__(self):

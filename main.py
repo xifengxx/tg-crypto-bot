@@ -31,6 +31,7 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 # 修改 main 函数，避免使用 Playwright
+# 在 main 函数中修改环境变量设置部分
 async def main():
     """
     主函数，协调各个模块的运行
@@ -55,9 +56,15 @@ async def main():
         if os.environ.get('RAILWAY_ENVIRONMENT'):
             logger.info("在 Railway 环境中运行")
             
-            # 设置环境变量，告诉 news_scraper.py 使用备用方法
+            # 明确设置环境变量为 'true'，确保 news_scraper.py 使用备用方法
             os.environ['USE_BACKUP_SCRAPER'] = 'true'
-            logger.info("已设置使用备用抓取方法")
+            logger.info("Railway 环境下，将使用备用的抓取方法")
+            
+            # 打印所有环境变量，帮助调试
+            logger.info("环境变量列表:")
+            for key, value in os.environ.items():
+                if not key.startswith('PATH') and not key.startswith('LD_'):
+                    logger.info(f"  {key}: {value}")
         
         # 启动定时任务调度器
         scheduler = start_scheduler()

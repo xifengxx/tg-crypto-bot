@@ -931,9 +931,14 @@ async def main():
     """
     all_news = []
     
+    # 检查是否使用备用抓取方法
+    use_backup = os.environ.get('USE_BACKUP_SCRAPER', 'false').lower() == 'true'
+    logger.info(f"USE_BACKUP_SCRAPER 环境变量: {os.environ.get('USE_BACKUP_SCRAPER', 'false')}")
+    logger.info(f"是否使用备用抓取方法: {use_backup}")
+    
     try:
         # 根据环境选择抓取方法
-        if USE_BACKUP_SCRAPER:
+        if use_backup:
             logger.info("使用备用抓取方法")
             # 使用备用方法抓取
             binance_news = await backup_fetch_binance_news()
@@ -942,6 +947,7 @@ async def main():
             
             # 合并所有新闻
             all_news = binance_news
+            logger.info(f"备用方法抓取完成，获取到 {len(all_news)} 条新闻")
         else:
             logger.info("使用 Playwright 抓取方法")
             # 使用原有的 Playwright 方法抓取
