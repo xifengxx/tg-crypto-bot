@@ -27,6 +27,11 @@ def signal_handler(sig, frame):
         scheduler.shutdown()
         logger.info("定时任务调度器已关闭")
     
+    # 取消轮询任务
+    if 'polling_task' in globals() and polling_task:
+        polling_task.cancel()
+        logger.info("Telegram Bot 轮询任务已取消")
+    
     # 退出程序
     sys.exit(0)
 
@@ -36,7 +41,7 @@ async def main():
     """
     主函数，协调各个模块的运行
     """
-    global application, scheduler
+    global application, scheduler, polling_task
     
     try:
         # 注册信号处理函数
@@ -49,7 +54,7 @@ async def main():
         from task_scheduler import start_scheduler
         
         # 启动 Telegram Bot
-        application = await start_bot()
+        polling_task = await start_bot()
         logger.info("Telegram Bot 已启动")
         
         # 检查是否在 Railway 环境中运行
@@ -97,6 +102,9 @@ async def main():
         logger.error(f"程序运行出错: {e}")
         logger.exception("详细错误信息")
         raise
+
+    # 返回 polling_task，以便在程序退出时可以取消
+    return polling_task
 
 if __name__ == "__main__":
     asyncio.run(main())

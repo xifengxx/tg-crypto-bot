@@ -7,10 +7,15 @@ from telegram.ext import Application, CommandHandler, CallbackContext
 from datetime import datetime, timedelta
 import asyncio
 
+# 在文件顶部的日志设置部分
 # 设置日志
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# 降低 httpx 和 telegram 模块的日志级别
+logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('telegram').setLevel(logging.WARNING)
 
 # 尝试从 config 导入 TOKEN 和 CHAT_IDS，如果失败则使用环境变量
 try:
@@ -153,14 +158,41 @@ async def send_latest_news():
 
 async def start_bot():
     """
-    ✅ 让 Telegram Bot 以异步方式运行，不影响事件循环
+    让 Telegram Bot 以异步方式运行，不影响事件循环
     """
+    global application  # 确保使用全局变量
+    
     logging.info("✅ Telegram Bot 正在运行...")
+    
+    # 创建应用实例
     application = Application.builder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
-
+    
+    # 先尝试删除任何现有的webhook，确保不会有冲突
+    try:
+        await application.bot.delete_webhook(drop_pending_updates=True)
+        logger.info("成功删除现有webhook")
+    except Exception as e:
+        logger.error(f"删除webhook时出错: {e}")
+    
+    # 初始化应用
     await application.initialize()
+    
+    # 启动应用但不阻塞
     await application.start()
+    
+    # 创建轮询任务，但设置较长的超时时间，减少请求频率
+    polling_task = asyncio.create_task(
+        application.updater.start_polling(
+            poll_interval=10.0,  # 增加轮询间隔到10秒
+            timeout=30,          # 增加超时时间
+            drop_pending_updates=True,  # 丢弃挂起的更新，避免处理旧消息
+            allowed_updates=Update.ALL_TYPES
+        )
+    )
+    
+    # 返回轮询任务，以便在需要时可以取消
+    return polling_task
 
     # ✅ **改用 `start()`，而不是 `run_polling()`**
     asyncio.create_task(application.updater.start_polling())

@@ -11,18 +11,30 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# 修改 news_database.py 中获取 MongoDB URI 的部分
+
 # 尝试从 config 导入 MONGO_URI，如果失败则使用环境变量
 try:
     from config import MONGO_URI
     logger.info("成功从 config.py 导入 MONGO_URI")
 except ImportError:
     logger.warning("无法导入 config 模块，将使用环境变量")
+    
     # 从环境变量获取 MongoDB URI
-    MONGO_URI = os.environ.get('MONGODB_URI', 'mongodb://localhost:27017')
-    logger.info(f"使用环境变量中的 MONGO_URI: {MONGO_URI}")
+    # Railway 提供的 MongoDB 服务会设置 MONGODB_URL 环境变量
+    MONGO_URI = os.environ.get('MONGODB_URL') or os.environ.get('MONGODB_URI', 'mongodb://localhost:27017')
+    
+    # 打印 MongoDB URI 的一部分，避免泄露敏感信息
+    if MONGO_URI:
+        uri_parts = MONGO_URI.split('@')
+        if len(uri_parts) > 1:
+            masked_uri = f"{uri_parts[0].split('://')[0]}://***:***@{uri_parts[1]}"
+        else:
+            masked_uri = MONGO_URI
+        logger.info(f"使用环境变量中的 MONGO_URI: {masked_uri}")
     
     # 检查 MongoDB URI 格式
-    if MONGO_URI == 'mongodb://:@:' or not MONGO_URI or ':@:' in MONGO_URI:
+    if not MONGO_URI or ':@:' in MONGO_URI:
         logger.error("MongoDB URI 格式不正确，使用默认本地连接")
         MONGO_URI = 'mongodb://localhost:27017'
 
