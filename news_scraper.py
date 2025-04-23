@@ -859,5 +859,118 @@ async def main():
     print(f"\n总共获取到 {len(all_news)} 条新闻")
     return all_news
 
+# 在 news_scraper.py 文件中添加备用的抓取方法
+
+# 添加以下代码到文件中适当的位置
+import os
+import requests
+from bs4 import BeautifulSoup
+import logging
+
+logger = logging.getLogger(__name__)
+
+# 检查是否使用备用抓取方法
+USE_BACKUP_SCRAPER = os.environ.get('USE_BACKUP_SCRAPER', 'false').lower() == 'true'
+
+# 备用的抓取方法，使用 requests 和 BeautifulSoup
+async def backup_fetch_binance_news():
+    """
+    使用 requests 和 BeautifulSoup 抓取 Binance 新闻（备用方法）
+    """
+    logger.info("使用备用方法抓取 Binance 新闻")
+    news_list = []
+    
+    try:
+        url = "https://www.binance.com/en/support/announcement/c-48"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        }
+        
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 根据 Binance 网站的结构提取新闻
+        # 这里的选择器需要根据实际网站结构调整
+        news_items = soup.select('.css-1wr4jig')
+        
+        for item in news_items:
+            try:
+                title_element = item.select_one('.css-1woe70d')
+                link_element = item.select_one('a')
+                time_element = item.select_one('.css-1ntn9j8')
+                
+                if title_element and link_element:
+                    title = title_element.text.strip()
+                    link = "https://www.binance.com" + link_element['href'] if link_element['href'].startswith('/') else link_element['href']
+                    time_str = time_element.text.strip() if time_element else "Unknown time"
+                    
+                    news_list.append({
+                        "title": title,
+                        "link": link,
+                        "time": time_str,
+                        "source": "Binance"
+                    })
+            except Exception as e:
+                logger.error(f"处理 Binance 新闻项时出错: {e}")
+        
+        logger.info(f"备用方法成功抓取到 {len(news_list)} 条 Binance 新闻")
+    except Exception as e:
+        logger.error(f"备用方法抓取 Binance 新闻失败: {e}")
+    
+    return news_list
+
+# 类似地，为其他交易所添加备用抓取方法
+# ...
+
+# 修改 main 函数，根据环境选择抓取方法
+async def main():
+    """
+    主函数，协调各个抓取任务
+    """
+    all_news = []
+    
+    try:
+        # 根据环境选择抓取方法
+        if USE_BACKUP_SCRAPER:
+            logger.info("使用备用抓取方法")
+            # 使用备用方法抓取
+            binance_news = await backup_fetch_binance_news()
+            # 其他交易所的备用抓取方法
+            # ...
+            
+            # 合并所有新闻
+            all_news = binance_news
+        else:
+            logger.info("使用 Playwright 抓取方法")
+            # 使用原有的 Playwright 方法抓取
+            tasks = [
+                fetch_binance_news(),
+                fetch_okx_news(),
+                fetch_bitget_news(),
+                fetch_bybit_news(),
+                fetch_kucoin_news(),
+                fetch_gate_news()
+            ]
+            
+            # 并行执行所有任务
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # 处理结果
+            for i, result in enumerate(results):
+                source = ["Binance", "OKX", "Bitget", "Bybit", "KuCoin", "Gate.io"][i]
+                if isinstance(result, Exception):
+                    logger.error(f"{source} 抓取失败: {result}")
+                else:
+                    logger.info(f"{source} 抓取成功: 获取到 {len(result)} 条新闻")
+                    all_news.extend(result)
+        
+        logger.info(f"总共获取到 {len(all_news)} 条新闻")
+        return all_news
+    except Exception as e:
+        logger.error(f"抓取过程中出错: {e}")
+        return []
+
 if __name__ == '__main__':
     asyncio.run(main())
