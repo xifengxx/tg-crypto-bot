@@ -48,6 +48,11 @@ async def main():
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
         
+        # 检查运行环境并输出明确标识
+        is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
+        environment_name = "Railway环境" if is_railway else "本地环境"
+        logger.info(f"🌍 当前在【{environment_name}】中运行程序")
+        
         # 导入必要的模块
         from news_database import news_collection
         from bot import send_latest_news, start_bot

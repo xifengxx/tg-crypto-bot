@@ -162,6 +162,10 @@ async def start_bot():
     """
     global application  # 确保使用全局变量
     
+    # 检查运行环境
+    is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
+    environment_name = "Railway环境" if is_railway else "本地环境"
+    logging.info(f"🌍 当前在【{environment_name}】中启动 Telegram Bot")
     logging.info("✅ Telegram Bot 正在运行...")
     
     # 创建应用实例

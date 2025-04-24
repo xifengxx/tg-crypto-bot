@@ -6,3 +6,4 @@ aiohttp
 requests
 asyncio
 apscheduler
+playwright>=1.40.0

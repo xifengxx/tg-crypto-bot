@@ -933,10 +933,32 @@ async def main():
     
     # 检查是否使用备用抓取方法
     use_backup = os.environ.get('USE_BACKUP_SCRAPER', 'false').lower() == 'true'
+    is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
+
+    environment_name = "Railway环境" if is_railway else "本地环境"
+    logger.info(f"🌍 当前在【{environment_name}】中执行抓取任务")
+    
     logger.info(f"USE_BACKUP_SCRAPER 环境变量: {os.environ.get('USE_BACKUP_SCRAPER', 'false')}")
     logger.info(f"是否使用备用抓取方法: {use_backup}")
+    logger.info(f"是否在 Railway 环境中: {is_railway}")
     
     try:
+        # 如果在 Railway 环境中，尝试安装 Playwright 依赖
+        if is_railway:
+            try:
+                logger.info("在 Railway 环境中，尝试安装 Playwright 依赖")
+                # 安装 Playwright 依赖
+                subprocess.run([sys.executable, "-m", "playwright", "install", "--with-deps", "chromium"], 
+                               check=True, capture_output=True)
+                logger.info("Playwright 依赖安装成功")
+                # 强制使用 Playwright 方法
+                use_backup = False
+            except Exception as e:
+                logger.error(f"安装 Playwright 依赖失败: {e}")
+                logger.exception("详细错误信息")
+                # 如果安装失败，使用备用方法
+                use_backup = True
+        
         # 根据环境选择抓取方法
         if use_backup:
             logger.info("使用备用抓取方法")

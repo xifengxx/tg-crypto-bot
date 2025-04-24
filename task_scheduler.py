@@ -92,6 +92,10 @@ async def scheduled_task():
     定时执行的任务：抓取新闻并发送
     """
     try:
+        # 检查运行环境
+        is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
+        environment_name = "Railway环境" if is_railway else "本地环境"
+        logger.info(f"🌍 当前在【{environment_name}】中执行定时任务")
         logger.info("开始执行定时抓取任务...")
         
         # 抓取新闻

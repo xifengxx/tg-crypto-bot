@@ -40,6 +40,11 @@ except ImportError:
 
 # 连接到 MongoDB
 try:
+    # 检查运行环境
+    is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
+    environment_name = "Railway环境" if is_railway else "本地环境"
+    logger.info(f"🌍 当前在【{environment_name}】中连接数据库")
+    
     # 添加连接超时设置
     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     
