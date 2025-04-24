@@ -834,31 +834,72 @@ async def fetch_gate_news():
 async def main():
     all_news = []
     
-    # 使用 gather 并捕获异常，确保一个任务失败不会影响其他任务
-    tasks = [
-        fetch_binance_news(),
-        fetch_okx_news(),
-        fetch_bitget_news(),
-        fetch_bybit_news(),
-        fetch_kucoin_news(),
-        fetch_gate_news()
-    ]
+    # 检查环境
+    is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
+    environment_name = "Railway环境" if is_railway else "本地环境"
     
-    # 并行执行所有任务，忽略异常
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    logger.info(f"🌍 当前在【{environment_name}】中执行抓取任务")
     
-    # 处理结果
-    for i, result in enumerate(results):
-        source = ["Binance", "OKX", "Bitget", "Bybit", "KuCoin", "Gate.io"][i]
-        if isinstance(result, Exception):
-            print(f"❌ {source} 抓取失败: {result}")
-        else:
-            print(f"✅ {source} 抓取成功: 获取到 {len(result)} 条新闻")
-            all_news.extend(result)
-    
-    print(f"\n总共获取到 {len(all_news)} 条新闻")
-    return all_news
+    try:
+        # 如果在 Railway 环境中，确保 Playwright 依赖已安装
+        if is_railway:
+            try:
+                logger.info("在 Railway 环境中，尝试安装 Playwright 依赖")
+                # 安装 Playwright 依赖
+                subprocess.run([sys.executable, "-m", "playwright", "install", "--with-deps", "chromium"], 
+                               check=True, capture_output=True)
+                logger.info("Playwright 依赖安装成功")
+            except Exception as e:
+                logger.error(f"安装 Playwright 依赖失败: {e}")
+                logger.exception("详细错误信息")
+                # 即使安装失败，仍然尝试使用 Playwright 方法
+                logger.info("尽管安装依赖失败，仍将尝试使用 Playwright 抓取方法")
+        
+        # 统一使用 Playwright 抓取方法
+        logger.info("使用 Playwright 抓取方法")
+        
+        # 配置 Playwright 启动选项，适应云环境
+        browser_launch_options = {
+            "headless": True,
+            "args": [
+                "--disable-gpu",
+                "--disable-dev-shm-usage",
+                "--disable-setuid-sandbox",
+                "--no-sandbox",
+                "--single-process",
+                "--no-zygote"
+            ]
+        }
 
+        # 使用 gather 并捕获异常，确保一个任务失败不会影响其他任务
+        tasks = [
+            fetch_binance_news(),
+            fetch_okx_news(),
+            fetch_bitget_news(),
+            fetch_bybit_news(),
+            fetch_kucoin_news(),
+            fetch_gate_news()
+        ]
+
+        # 并行执行所有任务，忽略异常
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # 处理结果
+        for i, result in enumerate(results):
+            source = ["Binance", "OKX", "Bitget", "Bybit", "KuCoin", "Gate.io"][i]
+            if isinstance(result, Exception):
+                print(f"❌ {source} 抓取失败: {result}")
+            else:
+                print(f"✅ {source} 抓取成功: 获取到 {len(result)} 条新闻")
+                all_news.extend(result)
+
+        print(f"\n总共获取到 {len(all_news)} 条新闻")
+        return all_news
+
+    except Exception as e:
+        logger.error(f"抓取过程中出错: {e}")
+        logger.exception("详细错误信息")
+        return []
 # 在 news_scraper.py 文件中添加备用的抓取方法
 
 # 添加以下代码到文件中适当的位置
@@ -866,6 +907,9 @@ import os
 import requests
 from bs4 import BeautifulSoup
 import logging
+import subprocess  # 添加这一行
+import sys  # 确保也导入了 sys 模块
+
 
 logger = logging.getLogger(__name__)
 
@@ -873,53 +917,53 @@ logger = logging.getLogger(__name__)
 USE_BACKUP_SCRAPER = os.environ.get('USE_BACKUP_SCRAPER', 'false').lower() == 'true'
 
 # 备用的抓取方法，使用 requests 和 BeautifulSoup
-async def backup_fetch_binance_news():
-    """
-    使用 requests 和 BeautifulSoup 抓取 Binance 新闻（备用方法）
-    """
-    logger.info("使用备用方法抓取 Binance 新闻")
-    news_list = []
+# async def backup_fetch_binance_news():
+#     """
+#     使用 requests 和 BeautifulSoup 抓取 Binance 新闻（备用方法）
+#     """
+#     logger.info("使用备用方法抓取 Binance 新闻")
+#     news_list = []
     
-    try:
-        url = "https://www.binance.com/en/support/announcement/c-48"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-        }
+#     try:
+#         url = "https://www.binance.com/en/support/announcement/c-48"
+#         headers = {
+#             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+#         }
         
-        response = requests.get(url, headers=headers, timeout=30)
-        response.raise_for_status()
+#         response = requests.get(url, headers=headers, timeout=30)
+#         response.raise_for_status()
         
-        soup = BeautifulSoup(response.text, 'html.parser')
+#         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # 根据 Binance 网站的结构提取新闻
-        # 这里的选择器需要根据实际网站结构调整
-        news_items = soup.select('.css-1wr4jig')
+#         # 根据 Binance 网站的结构提取新闻
+#         # 这里的选择器需要根据实际网站结构调整
+#         news_items = soup.select('.css-1wr4jig')
         
-        for item in news_items:
-            try:
-                title_element = item.select_one('.css-1woe70d')
-                link_element = item.select_one('a')
-                time_element = item.select_one('.css-1ntn9j8')
+#         for item in news_items:
+#             try:
+#                 title_element = item.select_one('.css-1woe70d')
+#                 link_element = item.select_one('a')
+#                 time_element = item.select_one('.css-1ntn9j8')
                 
-                if title_element and link_element:
-                    title = title_element.text.strip()
-                    link = "https://www.binance.com" + link_element['href'] if link_element['href'].startswith('/') else link_element['href']
-                    time_str = time_element.text.strip() if time_element else "Unknown time"
+#                 if title_element and link_element:
+#                     title = title_element.text.strip()
+#                     link = "https://www.binance.com" + link_element['href'] if link_element['href'].startswith('/') else link_element['href']
+#                     time_str = time_element.text.strip() if time_element else "Unknown time"
                     
-                    news_list.append({
-                        "title": title,
-                        "link": link,
-                        "time": time_str,
-                        "source": "Binance"
-                    })
-            except Exception as e:
-                logger.error(f"处理 Binance 新闻项时出错: {e}")
+#                     news_list.append({
+#                         "title": title,
+#                         "link": link,
+#                         "time": time_str,
+#                         "source": "Binance"
+#                     })
+#             except Exception as e:
+#                 logger.error(f"处理 Binance 新闻项时出错: {e}")
         
-        logger.info(f"备用方法成功抓取到 {len(news_list)} 条 Binance 新闻")
-    except Exception as e:
-        logger.error(f"备用方法抓取 Binance 新闻失败: {e}")
+#         logger.info(f"备用方法成功抓取到 {len(news_list)} 条 Binance 新闻")
+#     except Exception as e:
+#         logger.error(f"备用方法抓取 Binance 新闻失败: {e}")
     
-    return news_list
+#     return news_list
 
 # 类似地，为其他交易所添加备用抓取方法
 # ...
@@ -937,7 +981,7 @@ async def main():
 
     environment_name = "Railway环境" if is_railway else "本地环境"
     logger.info(f"🌍 当前在【{environment_name}】中执行抓取任务")
-    
+
     logger.info(f"USE_BACKUP_SCRAPER 环境变量: {os.environ.get('USE_BACKUP_SCRAPER', 'false')}")
     logger.info(f"是否使用备用抓取方法: {use_backup}")
     logger.info(f"是否在 Railway 环境中: {is_railway}")
