@@ -79,7 +79,7 @@ async def send_latest_news():
         return
 
     # 构建消息
-    message = f"🔔 最新加密货币新闻 ({len(all_news)}条):\n\n"
+    message_header = f"🔔 最新加密货币新闻 ({len(all_news)}条):\n\n"
     
     # 添加每条新闻
     news_items = []
@@ -92,35 +92,28 @@ async def send_latest_news():
     
     # 发送到 Telegram
     try:
-        # 分割消息，每条消息最多包含 10 条新闻或不超过 4000 字符
+        # 分割消息，每条消息最多不超过 4000 字符（留出一些余量）
         telegram_messages = []
-        current_message = message
-        current_length = len(current_message)
+        current_message = message_header
         
         for item in news_items:
-            # 如果添加这条新闻后消息长度超过 4000 字符，或者已经包含 10 条新闻，则创建新消息
-            if current_length + len(item) > 4000 or len(telegram_messages) * 10 >= len(telegram_messages) * 10 + telegram_messages.count(current_message):
+            # 如果添加这条新闻后消息长度超过 4000 字符，则创建新消息
+            if len(current_message) + len(item) > 4000:
                 telegram_messages.append(current_message)
                 current_message = f"🔔 最新加密货币新闻 (续):\n\n{item}"
-                current_length = len(current_message)
             else:
                 current_message += item
-                current_length += len(item)
         
         # 添加最后一条消息
-        if current_message != message:
+        if current_message:
             telegram_messages.append(current_message)
-        
-        # 如果没有分割，确保至少有一条消息
-        if not telegram_messages:
-            telegram_messages = [message]
         
         # 发送所有消息
         for chat_id in CHAT_IDS:
             for msg in telegram_messages:
                 await application.bot.send_message(chat_id=chat_id, text=msg, disable_web_page_preview=True)
         
-        print(f"✅ 成功推送 {len(all_news)} 条新闻到 Telegram")
+        print(f"✅ 成功推送 {len(all_news)} 条新闻到 Telegram，共 {len(telegram_messages)} 条消息")
     except Exception as e:
         print(f"❌ 发送新闻失败: {e}")
     
