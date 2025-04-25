@@ -80,6 +80,16 @@ async def main():
         scheduler = start_scheduler()
         logger.info("定时任务调度器已启动")
         
+        # 删除以下代码块
+        # logger.info("开始执行首次抓取任务...")
+        # news_list = await scraper_main()
+        # new_count = store_news(news_list)
+        # if new_count > 0:
+        #     logger.info(f"发现 {new_count} 条新新闻，准备推送...")
+        #     await send_latest_news()
+        # else:
+        #     logger.info("无新内容，跳过推送")
+        
         # 立即执行一次抓取任务
         logger.info("开始执行首次抓取任务...")
         

@@ -58,8 +58,17 @@ try:
     # 创建集合
     news_collection = db["news"]
     
-    # 创建索引以确保新闻标题的唯一性
-    news_collection.create_index([("title", 1)], unique=True)
+    # 尝试删除可能存在的冲突索引
+    try:
+        news_collection.drop_index("title_1")
+        logger.info("已删除旧的 title_1 索引")
+    except Exception as e:
+        logger.debug(f"删除索引时出错（可能不存在）: {e}")
+    
+    # 创建索引以确保新闻的唯一性，忽略不包含 unique_id 字段的文档
+    news_collection.create_index([("unique_id", 1)], unique=True, sparse=True, name="unique_id_index")
+    # 创建非唯一的标题索引，使用自定义名称避免冲突
+    news_collection.create_index([("title", 1)], name="title_index_non_unique")
     
     logger.info(f"✅ 成功连接到 MongoDB: {MONGO_URI}")
 except Exception as e:
@@ -111,29 +120,50 @@ except Exception as e:
                     return doc
             return None
         
-        def update_one(self, filter_query, update_query):
+        def update_one(self, filter_query, update_query, upsert=False):
             """
-            模拟 MongoDB 的 update_one 方法
+            模拟 MongoDB 的 update_one 方法，支持 upsert 操作
+            
+            Args:
+                filter_query (dict): 查询条件
+                update_query (dict): 更新操作
+                upsert (bool): 如果为 True，当文档不存在时插入新文档
+            
+            Returns:
+                UpdateResult: 包含 upserted_id 属性的模拟更新结果对象
             """
+            # 查找匹配的文档
+            existing_doc = None
             for doc in self.data:
                 match = True
                 for key, value in filter_query.items():
-                    if key == "_id":
-                        # 简单处理 _id 匹配
-                        if str(doc.get("_id")) != str(value):
-                            match = False
-                            break
-                    elif key not in doc or doc[key] != value:
+                    if key not in doc or doc[key] != value:
                         match = False
                         break
-                
                 if match:
-                    # 应用更新
-                    if "$set" in update_query:
-                        for key, value in update_query["$set"].items():
-                            doc[key] = value
-                    return True
-            return False
+                    existing_doc = doc
+                    break
+            
+            # 如果找到文档，更新它
+            if existing_doc:
+                if "$set" in update_query:
+                    for key, value in update_query["$set"].items():
+                        existing_doc[key] = value
+                return type('UpdateResult', (), {'upserted_id': None})()
+            
+            # 如果没找到文档且 upsert=True，创建新文档
+            elif upsert:
+                new_doc = {}
+                # 添加查询条件到新文档
+                new_doc.update(filter_query)
+                # 添加更新内容
+                if "$set" in update_query:
+                    new_doc.update(update_query["$set"])
+                self.data.append(new_doc)
+                return type('UpdateResult', (), {'upserted_id': id(new_doc)})()
+            
+            # 如果没找到文档且 upsert=False，返回无更新结果
+            return type('UpdateResult', (), {'upserted_id': None})()
     
     news_collection = FallbackCollection()
     logger.warning("⚠️ 使用内存存储作为备用")
@@ -142,27 +172,82 @@ except Exception as e:
 def store_news(news_list):
     """
     将新闻数据存入 MongoDB, 避免重复存储, 并返回新增条数
+    
+    Args:
+        news_list (list): 新闻列表
+        
+    Returns:
+        int: 新增的新闻数量
     """
     if not news_list:
-        print("⚠️ 没有新的新闻需要存储")
-        return 0  # ✅ 修改：返回 0，方便 `task_scheduler.py` 进行判断
+        logger.info("⚠️ 没有新的新闻需要存储")
+        return 0
     
-    new_count = 0  # 记录新增条数
+    # 记录已处理的新闻标识，用于本次批量处理中的去重
+    processed_ids = set()
+    new_count = 0
+    
     for news in news_list:
-        # 过滤重复数据（标题 + 链接）
-        existing_news = news_collection.find_one({"title": news["title"], "link": news["link"]})
-        
-        if not existing_news:
-            news["created_at"] = datetime.utcnow()  # 添加时间戳
-            news_collection.insert_one(news)
-            new_count += 1
-        else:
-            # 如果存在新闻，更新缺失的字段
-            if "source" not in existing_news:
-                existing_news["source"] = news.get("source", "Unknown")  # 默认值为 'Unknown'
-            if "time" not in existing_news:
-                existing_news["time"] = news.get("time", datetime.utcnow().isoformat())  # 默认当前时间
-            news_collection.update_one({"_id": existing_news["_id"]}, {"$set": existing_news})
+        try:
+            # 确保必要字段存在
+            if 'title' not in news or not news['title']:
+                logger.warning(f"跳过无标题新闻: {news}")
+                continue
+                
+            if 'source' not in news or not news['source']:
+                news['source'] = "Unknown"
+                
+            # 生成唯一标识 - 只使用标题和来源，不使用时间
+            # 这样即使时间不同，相同标题和来源的新闻也会被视为重复
+            unique_id = f"{news['source']}_{news['title']}"
+            
+            # 检查是否在当前批次中已处理过
+            if unique_id in processed_ids:
+                logger.debug(f"当前批次中已处理过此新闻，跳过: {news['title']}")
+                continue
+            
+            # 添加到已处理集合
+            processed_ids.add(unique_id)
+            
+            # 先检查数据库中是否已存在
+            existing_news = news_collection.find_one({
+                "unique_id": unique_id
+            })
+            
+            if existing_news:
+                logger.info(f"新闻已存在于数据库，跳过: {news['title']}")
+                continue
+                
+            # 使用 update_one 配合 upsert=True
+            result = news_collection.update_one(
+                {
+                    "unique_id": unique_id
+                },
+                {
+                    "$set": {
+                        **news,
+                        "unique_id": unique_id,  # 添加唯一标识
+                        "created_at": datetime.utcnow(),
+                        "source": news.get("source", "Unknown"),
+                        "time": news.get("time", datetime.utcnow().isoformat()),
+                        "last_updated": datetime.utcnow()
+                    }
+                },
+                upsert=True
+            )
+            
+            # 如果是新插入的文档，增加计数
+            if result.upserted_id:
+                new_count += 1
+                logger.info(f"新增新闻: {news['title']}")
+                
+        except Exception as e:
+            logger.error(f"存储新闻时出错: {e}")
+            logger.exception("详细错误信息")
+            continue
 
-    print(f"✅ 存储完成：{new_count} 条新新闻存入数据库")
-    return new_count  # ✅ 确保返回新增新闻的数量
+    if new_count > 0:
+        logger.info(f"✅ 存储完成：新增 {new_count} 条新闻")
+    else:
+        logger.info("✅ 存储完成：无新增新闻")
+    return new_count
