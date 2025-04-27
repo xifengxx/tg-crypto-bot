@@ -62,56 +62,54 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
+# 在文件顶部导入超时处理工具
+from utils import timeout
+import logging
+
 logger = logging.getLogger(__name__)
 
-# 尝试导入所需模块
-try:
-    from news_scraper import main as scraper_main
-    from news_database import store_news
-    from bot import send_latest_news
-except ImportError as e:
-    logger.error(f"导入模块失败: {e}")
-    # 创建备用函数
-    async def scraper_main():
-        logger.warning("无法导入 news_scraper 模块，返回空列表")
-        return []
-    
-    def store_news(news_list):
-        logger.warning("无法导入 news_database 模块，跳过存储")
-        return 0
-    
-    async def send_latest_news():
-        logger.warning("无法导入 bot 模块，跳过发送消息")
-
-# 创建调度器
-scheduler = AsyncIOScheduler()
-
-# 定义任务函数
+# 修改定时任务函数
 async def scheduled_task():
     """
-    定时执行的任务：抓取新闻并发送
+    定时执行的任务，包含超时处理机制
+    
+    每30分钟执行一次，抓取新闻并推送到 Telegram 和 Lark
+    如果执行时间超过25分钟，会自动终止任务
     """
     try:
-        # 检查运行环境
-        is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
-        environment_name = "Railway环境" if is_railway else "本地环境"
-        logger.info(f"🌍 当前在【{environment_name}】中执行定时任务")
-        logger.info("开始执行定时抓取任务...")
-        
-        # 抓取新闻
-        news_list = await scraper_main()
-        logger.info(f"定时抓取完成，获取到 {len(news_list)} 条新闻")
-        
-        # 存储新闻并获取新增数量
-        new_count = store_news(news_list)
-        
-        # 只有当有新内容时才发送
-        if new_count > 0:
-            logger.info(f"发现 {new_count} 条新新闻，准备推送...")
-            await send_latest_news()
-        else:
-            logger.info("无新内容，跳过推送")
+        # 设置超时时间为25分钟（1500秒）
+        # 由于任务间隔为30分钟，设置25分钟的超时确保下一个任务能正常执行
+        with timeout(1500):
+            logger.info("开始执行定时任务...")
+            start_time = datetime.now()
             
+            # 导入必要的模块
+            from news_scraper import main as scraper_main
+            from news_database import store_news
+            from bot import send_latest_news
+            
+            # 抓取新闻
+            news_list = await scraper_main()
+            logger.info(f"抓取完成，获取到 {len(news_list)} 条新闻")
+            
+            # 存储新闻
+            new_count = store_news(news_list)
+            
+            # 推送新闻
+            if new_count > 0:
+                logger.info(f"发现 {new_count} 条新新闻，准备推送...")
+                await send_latest_news()
+            else:
+                logger.info("无新内容，跳过推送")
+                
+            # 记录任务执行时间
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            logger.info(f"定时任务执行完成，耗时 {duration:.2f} 秒")
+            
+    except TimeoutError as e:
+        logger.error(f"定时任务执行超时: {e}")
+        # 可以在这里添加清理代码，例如关闭连接等
     except Exception as e:
         logger.error(f"定时任务执行出错: {e}")
         logger.exception("详细错误信息")
@@ -120,6 +118,9 @@ def start_scheduler():
     """
     启动定时任务调度器
     """
+    # 创建调度器实例
+    scheduler = AsyncIOScheduler()
+    
     # 添加定时任务，每30分钟执行一次
     scheduler.add_job(scheduled_task, 'interval', minutes=30, id='news_scraper')
     

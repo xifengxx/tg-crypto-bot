@@ -60,8 +60,8 @@ try:
     
     # 尝试删除可能存在的冲突索引
     try:
-        news_collection.drop_index("title_1")
-        logger.info("已删除旧的 title_1 索引")
+        news_collection.drop_index("unique_id_1")
+        logger.info("已删除旧的 unique_id_1 索引")
     except Exception as e:
         logger.debug(f"删除索引时出错（可能不存在）: {e}")
     
