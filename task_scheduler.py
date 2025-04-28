@@ -88,19 +88,22 @@ async def scheduled_task():
             from news_database import store_news
             from bot import send_latest_news
             
-            # 抓取新闻
-            news_list = await scraper_main()
-            logger.info(f"抓取完成，获取到 {len(news_list)} 条新闻")
-            
-            # 存储新闻
-            new_count = store_news(news_list)
-            
-            # 推送新闻
-            if new_count > 0:
-                logger.info(f"发现 {new_count} 条新新闻，准备推送...")
-                await send_latest_news()
-            else:
-                logger.info("无新内容，跳过推送")
+            try:
+                # 抓取新闻，设置总超时为20分钟
+                news_list = await asyncio.wait_for(scraper_main(), timeout=1200)
+                logger.info(f"抓取完成，获取到 {len(news_list)} 条新闻")
+                
+                # 存储新闻
+                new_count = store_news(news_list)
+                
+                # 推送新闻
+                if new_count > 0:
+                    logger.info(f"发现 {new_count} 条新新闻，准备推送...")
+                    await send_latest_news()
+                else:
+                    logger.info("无新内容，跳过推送")
+            except asyncio.TimeoutError:
+                logger.error("新闻抓取超时，跳过本次任务")
                 
             # 记录任务执行时间
             end_time = datetime.now()

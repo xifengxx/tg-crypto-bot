@@ -5,8 +5,13 @@ import requests  # 添加 requests 库导入
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 from datetime import datetime, timedelta
+import logging
+from utils import async_timeout
+
+logger = logging.getLogger(__name__)
 
 # Binance新闻抓取示例
+@async_timeout(300)  # 5分钟超时
 async def fetch_binance_news():
     url = "https://www.binance.com/en/support/announcement/c-48"
     news_list = []  # 将 news_list 移到函数开始处
@@ -111,6 +116,7 @@ async def fetch_binance_news():
 
 # 你可以为其它交易所编写类似的抓取函数
 # OKX新闻抓取示例
+@async_timeout(300)  # 5分钟超时
 async def fetch_okx_news():
     url = "https://www.okx.com/help/section/announcements-new-listings"
     news_list = []
@@ -190,6 +196,7 @@ async def fetch_okx_news():
     return list(unique_news)
 
 # Bitget新闻抓取
+@async_timeout(300)  # 5分钟超时
 async def fetch_bitget_news():
     url = "https://www.bitget.com/support/categories/11865590960081"
 
@@ -360,6 +367,7 @@ async def fetch_bitget_news():
 #     return list(unique_news)
 
 # 使用 Bybit 官方 API 获取新闻
+@async_timeout(300)  # 5分钟超时
 async def fetch_bybit_news():
     print("开始通过 Bybit 官方 API 抓取新闻...")
     news_list = []
@@ -647,6 +655,7 @@ def format_news_time(news_time):
 
 
 # KuCoin新闻抓取
+@async_timeout(300)  # 5分钟超时
 async def fetch_kucoin_news():
     url = "https://www.kucoin.com/announcement/new-listings"
     news_list = []
@@ -725,6 +734,7 @@ async def fetch_kucoin_news():
     return list(unique_news)
 
 # Gate.io新闻抓取
+@async_timeout(300)  # 5分钟超时
 async def fetch_gate_news():
     url = "https://www.gate.io/announcements/newlisted"
     news_list = []
@@ -832,7 +842,16 @@ async def fetch_gate_news():
 
 # 更新 main 函数
 async def main():
-    all_news = []
+    """
+    主函数：并行抓取所有交易所的新闻，并合并结果
+    
+    设置了总体超时控制，确保即使某个交易所抓取失败，也能返回其他交易所的结果
+    
+    Returns:
+        list: 合并后的新闻列表
+    """
+    logger.info("开始抓取所有交易所新闻...")
+    start_time = datetime.now()
     
     # 检查环境
     is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
@@ -871,7 +890,7 @@ async def main():
             ]
         }
 
-        # 使用 gather 并捕获异常，确保一个任务失败不会影响其他任务
+        # 创建任务列表
         tasks = [
             fetch_binance_news(),
             fetch_okx_news(),
@@ -881,19 +900,27 @@ async def main():
             fetch_gate_news()
         ]
 
-        # 并行执行所有任务，忽略异常
+        # 使用 gather 并行执行所有任务，设置 return_exceptions=True 避免一个任务失败影响其他任务
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # 处理结果
+        all_news = []
+        exchange_names = ["Binance", "OKX", "Bitget", "Bybit", "KuCoin", "Gate.io"]
+        
         for i, result in enumerate(results):
-            source = ["Binance", "OKX", "Bitget", "Bybit", "KuCoin", "Gate.io"][i]
             if isinstance(result, Exception):
-                print(f"❌ {source} 抓取失败: {result}")
+                # 如果是异常，记录错误但继续处理其他结果
+                logger.error(f"{exchange_names[i]} 抓取失败: {result}")
             else:
-                print(f"✅ {source} 抓取成功: 获取到 {len(result)} 条新闻")
+                # 正常结果，添加到总列表
+                logger.info(f"{exchange_names[i]} 抓取成功，获取 {len(result)} 条新闻")
                 all_news.extend(result)
-
-        print(f"\n总共获取到 {len(all_news)} 条新闻")
+        
+        # 记录总执行时间
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        logger.info(f"所有交易所抓取完成，总耗时 {duration:.2f} 秒，共获取 {len(all_news)} 条新闻")
+        
         return all_news
 
     except Exception as e:
