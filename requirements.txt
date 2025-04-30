@@ -1,9 +1,9 @@
 python-telegram-bot>=20.0
 pymongo
-playwright
-beautifulsoup4
-aiohttp
 requests
-asyncio
+beautifulsoup4
+playwright
+aiohttp
 apscheduler
+python-dotenv
 playwright>=1.40.0

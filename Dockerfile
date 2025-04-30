@@ -1,4 +1,8 @@
+# 使用 Python 3.12 作为基础镜像
 FROM python:3.12-slim
+
+# 设置工作目录
+WORKDIR /app
 
 # 安装系统依赖
 RUN apt-get update && apt-get install -y \
@@ -29,21 +33,22 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
-
-# 复制项目文件
-COPY . .
+# 复制 requirements.txt 文件
+COPY requirements.txt .
 
 # 安装 Python 依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 安装 Playwright
-RUN pip install playwright
-RUN playwright install --with-deps chromium
+# 安装 Playwright 及其依赖
+RUN pip install playwright && \
+    playwright install --with-deps chromium
 
 # 设置环境变量
+ENV RAILWAY_ENVIRONMENT=true
 ENV PYTHONUNBUFFERED=1
-ENV USE_BACKUP_SCRAPER=false
 
-# 启动应用
+# 复制项目文件
+COPY . .
+
+# 启动命令
 CMD ["python", "main.py"]

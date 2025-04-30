@@ -927,149 +927,63 @@ async def main():
         logger.error(f"抓取过程中出错: {e}")
         logger.exception("详细错误信息")
         return []
-# 在 news_scraper.py 文件中添加备用的抓取方法
-
-# 添加以下代码到文件中适当的位置
 import os
 import requests
 from bs4 import BeautifulSoup
 import logging
-import subprocess  # 添加这一行
-import sys  # 确保也导入了 sys 模块
-
+import subprocess
+import sys
 
 logger = logging.getLogger(__name__)
 
-# 检查是否使用备用抓取方法
-USE_BACKUP_SCRAPER = os.environ.get('USE_BACKUP_SCRAPER', 'false').lower() == 'true'
-
-# 备用的抓取方法，使用 requests 和 BeautifulSoup
-# async def backup_fetch_binance_news():
-#     """
-#     使用 requests 和 BeautifulSoup 抓取 Binance 新闻（备用方法）
-#     """
-#     logger.info("使用备用方法抓取 Binance 新闻")
-#     news_list = []
-    
-#     try:
-#         url = "https://www.binance.com/en/support/announcement/c-48"
-#         headers = {
-#             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-#         }
-        
-#         response = requests.get(url, headers=headers, timeout=30)
-#         response.raise_for_status()
-        
-#         soup = BeautifulSoup(response.text, 'html.parser')
-        
-#         # 根据 Binance 网站的结构提取新闻
-#         # 这里的选择器需要根据实际网站结构调整
-#         news_items = soup.select('.css-1wr4jig')
-        
-#         for item in news_items:
-#             try:
-#                 title_element = item.select_one('.css-1woe70d')
-#                 link_element = item.select_one('a')
-#                 time_element = item.select_one('.css-1ntn9j8')
-                
-#                 if title_element and link_element:
-#                     title = title_element.text.strip()
-#                     link = "https://www.binance.com" + link_element['href'] if link_element['href'].startswith('/') else link_element['href']
-#                     time_str = time_element.text.strip() if time_element else "Unknown time"
-                    
-#                     news_list.append({
-#                         "title": title,
-#                         "link": link,
-#                         "time": time_str,
-#                         "source": "Binance"
-#                     })
-#             except Exception as e:
-#                 logger.error(f"处理 Binance 新闻项时出错: {e}")
-        
-#         logger.info(f"备用方法成功抓取到 {len(news_list)} 条 Binance 新闻")
-#     except Exception as e:
-#         logger.error(f"备用方法抓取 Binance 新闻失败: {e}")
-    
-#     return news_list
-
-# 类似地，为其他交易所添加备用抓取方法
-# ...
-
-# 修改 main 函数，根据环境选择抓取方法
 async def main():
     """
-    主函数，协调各个抓取任务
-    """
-    all_news = []
+    主函数：并行抓取所有交易所的新闻，并合并结果
     
-    # 检查是否使用备用抓取方法
-    use_backup = os.environ.get('USE_BACKUP_SCRAPER', 'false').lower() == 'true'
+    Returns:
+        list: 合并后的新闻列表
+    """
+    # 检查运行环境
     is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
-
     environment_name = "Railway环境" if is_railway else "本地环境"
     logger.info(f"🌍 当前在【{environment_name}】中执行抓取任务")
-
-    logger.info(f"USE_BACKUP_SCRAPER 环境变量: {os.environ.get('USE_BACKUP_SCRAPER', 'false')}")
-    logger.info(f"是否使用备用抓取方法: {use_backup}")
-    logger.info(f"是否在 Railway 环境中: {is_railway}")
+    
+    # 记录开始时间
+    start_time = datetime.now()
     
     try:
-        # 如果在 Railway 环境中，尝试安装 Playwright 依赖
-        if is_railway:
-            try:
-                logger.info("在 Railway 环境中，尝试安装 Playwright 依赖")
-                # 安装 Playwright 依赖
-                subprocess.run([sys.executable, "-m", "playwright", "install", "--with-deps", "chromium"], 
-                               check=True, capture_output=True)
-                logger.info("Playwright 依赖安装成功")
-                # 强制使用 Playwright 方法
-                use_backup = False
-            except Exception as e:
-                logger.error(f"安装 Playwright 依赖失败: {e}")
-                logger.exception("详细错误信息")
-                # 如果安装失败，使用备用方法
-                use_backup = True
+        # 创建任务列表
+        tasks = [
+            fetch_binance_news(),
+            fetch_okx_news(),
+            fetch_bitget_news(),
+            fetch_bybit_news(),
+            fetch_kucoin_news(),
+            fetch_gate_news()
+        ]
         
-        # 根据环境选择抓取方法
-        if use_backup:
-            logger.info("使用备用抓取方法")
-            # 使用备用方法抓取
-            binance_news = await backup_fetch_binance_news()
-            # 其他交易所的备用抓取方法
-            # ...
-            
-            # 合并所有新闻
-            all_news = binance_news
-            logger.info(f"备用方法抓取完成，获取到 {len(all_news)} 条新闻")
-        else:
-            logger.info("使用 Playwright 抓取方法")
-            # 使用原有的 Playwright 方法抓取
-            tasks = [
-                fetch_binance_news(),
-                fetch_okx_news(),
-                fetch_bitget_news(),
-                fetch_bybit_news(),
-                fetch_kucoin_news(),
-                fetch_gate_news()
-            ]
-            
-            # 并行执行所有任务
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # 处理结果
-            for i, result in enumerate(results):
-                source = ["Binance", "OKX", "Bitget", "Bybit", "KuCoin", "Gate.io"][i]
-                if isinstance(result, Exception):
-                    logger.error(f"{source} 抓取失败: {result}")
-                else:
-                    logger.info(f"{source} 抓取成功: 获取到 {len(result)} 条新闻")
-                    all_news.extend(result)
+        # 使用 gather 并行执行所有任务，设置 return_exceptions=True 避免一个任务失败影响其他任务
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # 处理结果
+        all_news = []
+        exchange_names = ["Binance", "OKX", "Bitget", "Bybit", "KuCoin", "Gate.io"]
+        
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                # 如果是异常，记录错误但继续处理其他结果
+                logger.error(f"{exchange_names[i]} 抓取失败: {result}")
+            else:
+                # 正常结果，添加到总列表
+                logger.info(f"{exchange_names[i]} 抓取成功，获取 {len(result)} 条新闻")
+                all_news.extend(result)
         
         logger.info(f"总共获取到 {len(all_news)} 条新闻")
         return all_news
     except Exception as e:
         logger.error(f"抓取过程中出错: {e}")
-        return []
+        logger.exception("详细错误信息")
+        return []  # 出错时返回空列表
 
 if __name__ == '__main__':
     asyncio.run(main())
