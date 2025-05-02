@@ -179,24 +179,33 @@ async def start_bot():
     await application.start()
     
     # 创建轮询任务，但设置较长的超时时间，减少请求频率
-    polling_task = asyncio.create_task(
-        application.updater.start_polling(
-            poll_interval=10.0,  # 增加轮询间隔到10秒
-            timeout=30,          # 增加超时时间
-            drop_pending_updates=True,  # 丢弃挂起的更新，避免处理旧消息
-            allowed_updates=Update.ALL_TYPES
-        )
-    )
+    max_retries = 3
+    retry_count = 0
     
-    # 返回轮询任务，以便在需要时可以取消
-    return polling_task
+    while retry_count < max_retries:
+        try:
+            polling_task = asyncio.create_task(
+                application.updater.start_polling(
+                    poll_interval=30.0,  # 增加轮询间隔到30秒
+                    timeout=60,          # 增加超时时间到60秒
+                    drop_pending_updates=True,  # 丢弃挂起的更新，避免处理旧消息
+                    allowed_updates=Update.ALL_TYPES,
+                    read_timeout=60,     # 增加读取超时
+                    write_timeout=60     # 增加写入超时
+                )
+            )
+            logger.info("成功启动轮询任务")
+            return polling_task
+        except Exception as e:
+            retry_count += 1
+            logger.error(f"启动轮询任务失败 (尝试 {retry_count}/{max_retries}): {e}")
+            await asyncio.sleep(10)  # 等待10秒后重试
+    
+    logger.error("达到最大重试次数，无法启动轮询任务")
+    return None
 
     # ✅ **改用 `start()`，而不是 `run_polling()`**
-    asyncio.create_task(application.updater.start_polling())
-
     # ✅ **关键修正：让 `run_polling()` 运行在后台**
-    # asyncio.create_task(application.run_polling(allowed_updates=None))
-
     # ✅ **不阻塞事件循环，避免 `RuntimeError`**
     
     # # ✅ 修正：获取当前运行的事件循环，防止 `run_polling()` 关闭它
