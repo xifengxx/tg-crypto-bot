@@ -30,6 +30,14 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     libu2f-udev \
     libvulkan1 \
+    # 添加以下可能缺失的依赖 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libxcursor1 \
+    libxi6 \
+    libxtst6 \
+    fonts-noto-color-emoji \
+    xvfb \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

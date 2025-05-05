@@ -66,9 +66,9 @@ async def main():
         if os.environ.get('RAILWAY_ENVIRONMENT'):
             logger.info("在 Railway 环境中运行")
             
-            # 明确设置环境变量为 'true'，确保 news_scraper.py 使用备用方法
-            os.environ['USE_BACKUP_SCRAPER'] = 'true'
-            logger.info("Railway 环境下，将使用备用的抓取方法")
+            # 删除以下两行代码
+            # os.environ['USE_BACKUP_SCRAPER'] = 'true'
+            # logger.info("Railway 环境下，将使用备用的抓取方法")
             
             # 打印所有环境变量，帮助调试
             logger.info("环境变量列表:")
@@ -79,16 +79,6 @@ async def main():
         # 启动定时任务调度器
         scheduler = start_scheduler()
         logger.info("定时任务调度器已启动")
-        
-        # 删除以下代码块
-        # logger.info("开始执行首次抓取任务...")
-        # news_list = await scraper_main()
-        # new_count = store_news(news_list)
-        # if new_count > 0:
-        #     logger.info(f"发现 {new_count} 条新新闻，准备推送...")
-        #     await send_latest_news()
-        # else:
-        #     logger.info("无新内容，跳过推送")
         
         # 立即执行一次抓取任务
         logger.info("开始执行首次抓取任务...")
