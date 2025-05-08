@@ -953,30 +953,25 @@ async def main():
     
     try:
         # 创建任务列表
-        tasks = [
-            fetch_binance_news(),
-            fetch_okx_news(),
-            fetch_bitget_news(),
-            fetch_bybit_news(),
-            fetch_kucoin_news(),
-            fetch_gate_news()
-        ]
-        
-        # 使用 gather 并行执行所有任务，设置 return_exceptions=True 避免一个任务失败影响其他任务
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # 处理结果
         all_news = []
         exchange_names = ["Binance", "OKX", "Bitget", "Bybit", "KuCoin", "Gate.io"]
+        tasks = [
+            fetch_binance_news,
+            fetch_okx_news,
+            fetch_bitget_news,
+            fetch_bybit_news,  # Bybit使用API，不受影响
+            fetch_kucoin_news,
+            fetch_gate_news
+        ]
         
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                # 如果是异常，记录错误但继续处理其他结果
-                logger.error(f"{exchange_names[i]} 抓取失败: {result}")
-            else:
-                # 正常结果，添加到总列表
+        # 一次只运行一个浏览器任务
+        for i, task_func in enumerate(tasks):
+            try:
+                result = await task_func()
                 logger.info(f"{exchange_names[i]} 抓取成功，获取 {len(result)} 条新闻")
                 all_news.extend(result)
+            except Exception as e:
+                logger.error(f"{exchange_names[i]} 抓取失败: {e}")
         
         logger.info(f"总共获取到 {len(all_news)} 条新闻")
         return all_news

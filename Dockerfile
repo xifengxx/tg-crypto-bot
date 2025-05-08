@@ -55,6 +55,11 @@ RUN pip install playwright && \
 ENV RAILWAY_ENVIRONMENT=true
 ENV PYTHONUNBUFFERED=1
 
+# 在CMD行之前添加
+# 设置Node.js和浏览器的内存限制
+ENV NODE_OPTIONS="--max-old-space-size=512"
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
 # 复制项目文件
 COPY . .
 
