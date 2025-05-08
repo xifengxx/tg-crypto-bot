@@ -47,18 +47,15 @@ COPY requirements.txt .
 # 安装 Python 依赖
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 安装 Playwright 及其依赖
-RUN pip install playwright && \
-    playwright install --with-deps chromium
-
-# 设置环境变量
+# 设置环境变量（在安装Playwright之前）
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV NODE_OPTIONS="--max-old-space-size=512"
 ENV RAILWAY_ENVIRONMENT=true
 ENV PYTHONUNBUFFERED=1
 
-# 在CMD行之前添加
-# 设置Node.js和浏览器的内存限制
-ENV NODE_OPTIONS="--max-old-space-size=512"
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# 安装 Playwright 及其依赖（确保在设置环境变量之后）
+RUN pip install playwright && \
+    python -m playwright install --with-deps chromium
 
 # 复制项目文件
 COPY . .
