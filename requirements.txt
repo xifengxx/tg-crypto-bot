@@ -2,8 +2,8 @@ python-telegram-bot>=20.0
 pymongo
 requests
 beautifulsoup4
-playwright
+playwright>=1.40.0
 aiohttp
 apscheduler
 python-dotenv
-playwright>=1.40.0
+dnspython  # 用于MongoDB Atlas SRV连接

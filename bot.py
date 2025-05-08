@@ -189,9 +189,10 @@ async def start_bot():
                     poll_interval=30.0,  # 增加轮询间隔到30秒
                     timeout=60,          # 增加超时时间到60秒
                     drop_pending_updates=True,  # 丢弃挂起的更新，避免处理旧消息
-                    allowed_updates=Update.ALL_TYPES,
-                    read_timeout=60,     # 增加读取超时
-                    write_timeout=60     # 增加写入超时
+                    allowed_updates=Update.ALL_TYPES
+                    # 删除不支持的参数
+                    # read_timeout=60,
+                    # write_timeout=60
                 )
             )
             logger.info("成功启动轮询任务")

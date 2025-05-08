@@ -3,6 +3,10 @@ import os
 from pymongo import MongoClient
 import logging
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+# 加载.env文件中的环境变量
+load_dotenv()
 
 # 设置日志
 logging.basicConfig(
@@ -11,20 +15,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# 修改 news_database.py 中获取 MongoDB URI 的部分
-
-# 尝试从 config 导入 MONGO_URI，如果失败则使用环境变量
+# 尝试从config导入MONGO_URI，如果失败则使用环境变量
 try:
     from config import MONGO_URI
     logger.info("成功从 config.py 导入 MONGO_URI")
 except ImportError:
     logger.warning("无法导入 config 模块，将使用环境变量")
     
-    # 从环境变量获取 MongoDB URI
-    # Railway 提供的 MongoDB 服务会设置 MONGODB_URL 环境变量
-    MONGO_URI = os.environ.get('MONGODB_URL') or os.environ.get('MONGODB_URI', 'mongodb://localhost:27017')
+    # 优先使用MongoDB Atlas的连接字符串
+    MONGO_URI = os.environ.get('MONGODB_ATLAS_URI') or os.environ.get('MONGODB_URL') or os.environ.get('MONGODB_URI', 'mongodb://localhost:27017')
     
-    # 打印 MongoDB URI 的一部分，避免泄露敏感信息
+    # 打印MongoDB URI的一部分，避免泄露敏感信息
     if MONGO_URI:
         uri_parts = MONGO_URI.split('@')
         if len(uri_parts) > 1:
@@ -33,44 +34,39 @@ except ImportError:
             masked_uri = MONGO_URI
         logger.info(f"使用环境变量中的 MONGO_URI: {masked_uri}")
     
-    # 检查 MongoDB URI 格式
+    # 检查MongoDB URI格式
     if not MONGO_URI or ':@:' in MONGO_URI:
         logger.error("MongoDB URI 格式不正确，使用默认本地连接")
         MONGO_URI = 'mongodb://localhost:27017'
 
-# 连接到 MongoDB
+# 连接到MongoDB
 try:
     # 检查运行环境
     is_railway = os.environ.get('RAILWAY_ENVIRONMENT') is not None
     environment_name = "Railway环境" if is_railway else "本地环境"
     logger.info(f"🌍 当前在【{environment_name}】中连接数据库")
     
-    # 添加连接超时设置
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    # 添加连接超时设置和重试逻辑
+    client = MongoClient(MONGO_URI, 
+                        serverSelectionTimeoutMS=5000,
+                        retryWrites=True,
+                        connectTimeoutMS=30000,
+                        socketTimeoutMS=45000)
     
     # 测试连接
     client.admin.command('ping')
     
-    # 根据环境选择数据库名称
-    db_name = "crypto_news" if os.environ.get('RAILWAY_ENVIRONMENT') else "crypto_news_local"
-    db = client[db_name]
+    # 使用固定的数据库名称，不再根据环境区分
+    db = client["crypto_news"]
     
     # 创建集合
     news_collection = db["news"]
     
-    # 尝试删除可能存在的冲突索引
-    try:
-        news_collection.drop_index("unique_id_1")
-        logger.info("已删除旧的 unique_id_1 索引")
-    except Exception as e:
-        logger.debug(f"删除索引时出错（可能不存在）: {e}")
-    
-    # 创建索引以确保新闻的唯一性，忽略不包含 unique_id 字段的文档
+    # 创建索引以确保新闻的唯一性
     news_collection.create_index([("unique_id", 1)], unique=True, sparse=True, name="unique_id_index")
-    # 创建非唯一的标题索引，使用自定义名称避免冲突
-    news_collection.create_index([("title", 1)], name="title_index_non_unique")
+    news_collection.create_index(["title", 1], name="title_index_non_unique")
     
-    logger.info(f"✅ 成功连接到 MongoDB: {MONGO_URI}")
+    logger.info(f"✅ 成功连接到 MongoDB Atlas")
 except Exception as e:
     logger.error(f"❌ MongoDB 连接失败: {e}")
     logger.exception("MongoDB 连接详细错误")
