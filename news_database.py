@@ -64,7 +64,7 @@ try:
     
     # 创建索引以确保新闻的唯一性
     news_collection.create_index([("unique_id", 1)], unique=True, sparse=True, name="unique_id_index")
-    news_collection.create_index(["title", 1], name="title_index_non_unique")
+    news_collection.create_index([("title", 1)], name="title_index_non_unique")
     
     logger.info(f"✅ 成功连接到 MongoDB Atlas")
 except Exception as e:
