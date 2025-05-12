@@ -23,6 +23,9 @@ async def fetch_binance_news():
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",  # 减少内存使用
+                "--disable-gpu",            # 禁用GPU加速
+                "--single-process"          # 使用单进程模式
             ]
         )
         context = await browser.new_context(
@@ -667,6 +670,9 @@ async def fetch_kucoin_news():
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
                 "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",  # 减少内存使用
+                "--disable-gpu",            # 禁用GPU加速
+                "--single-process"          # 使用单进程模式
             ]
         )
         context = await browser.new_context(
@@ -748,6 +754,7 @@ async def fetch_gate_news():
                 "--disable-setuid-sandbox",
                 "--disable-dev-shm-usage",  # 减少内存使用
                 "--disable-gpu",  # 禁用GPU加速
+                "--single-process"          # 使用单进程模式
             ],
             timeout=120000  # 增加浏览器启动超时时间到2分钟
         )
