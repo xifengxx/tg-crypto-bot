@@ -15,10 +15,12 @@ logger = logging.getLogger(__name__)
 async def fetch_binance_news():
     url = "https://www.binance.com/en/support/announcement/c-48"
     news_list = []  # 将 news_list 移到函数开始处
-
+    skipped_count = 0  # 新增：记录跳过的新闻数量
     async with async_playwright() as p:
+        # 在fetch_binance_news等函数中修改浏览器启动配置
         browser = await p.chromium.launch(
             headless=True,
+            # executable_path=os.environ.get('PLAYWRIGHT_CHROMIUM_PATH', ''),  # 允许自定义路径
             args=[
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
@@ -90,8 +92,10 @@ async def fetch_binance_news():
                         "source": "Binance"
                     })
                 else:
-                    print(f"⚠️ 跳过无效新闻项: {item}")
-            
+                    # print(f"⚠️ 跳过无效新闻项: {item}")
+                    skipped_count += 1  # 只增加计数，不打印详细信息
+
+            # 关闭浏览器
             await browser.close()
         except Exception as e:
             print(f"Binance 抓取出错: {e}")
@@ -108,11 +112,11 @@ async def fetch_binance_news():
     
     print("\n=== 抓取统计 ===")
     print(f"📌 总共抓取 {total_count} 条新闻")
-    print(f"🔍 去重后剩余 {filtered_count} 条新闻\n")
+    print(f"🔍 去重后剩余 {filtered_count} 条新闻，跳过 {skipped_count} 条无效项\n")
     
-    print("\n=== 抓取结果 ===\n")
-    for item in unique_news:
-        print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
+    # print("\n=== 抓取结果 ===\n")
+    # for item in unique_news:
+    #     print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
     
     return list(unique_news)    
 
@@ -192,9 +196,9 @@ async def fetch_okx_news():
     print(f"📌 总共抓取 {total_count} 条新闻")
     print(f"🔍 去重后剩余 {filtered_count} 条新闻\n")
 
-    print("\n=== 抓取结果 ===\n")
-    for item in unique_news:
-        print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
+    # print("\n=== 抓取结果 ===\n")
+    # for item in unique_news:
+    #     print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
 
     return list(unique_news)
 
@@ -273,9 +277,9 @@ async def fetch_bitget_news():
     print(f"📌 总共抓取 {total_count} 条新闻")
     print(f"🔍 去重后剩余 {filtered_count} 条新闻\n")
 
-    print("\n=== 抓取结果 ===\n")
-    for item in unique_news:
-        print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
+    # print("\n=== 抓取结果 ===\n")
+    # for item in unique_news:
+    #     print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
 
     return list(unique_news)
 
@@ -503,9 +507,9 @@ async def fetch_bybit_news():
     print(f"📌 总共抓取 {total_count} 条新闻")
     print(f"🔍 去重后剩余 {filtered_count} 条新闻\n")
 
-    print("\n=== 抓取结果 ===\n")
-    for item in unique_news:
-        print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
+    # print("\n=== 抓取结果 ===\n")
+    # for item in unique_news:
+    #     print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
 
     return list(unique_news)
 
@@ -719,7 +723,7 @@ async def fetch_kucoin_news():
         except Exception as e:
             print(f"KuCoin 抓取出错: {e}")
             html = await page.content()
-            print("页面HTML前1000个字符:")
+            print("页面HTML前100个字符:")
             print(html[:1000])
         finally:
             await browser.close()
@@ -733,9 +737,9 @@ async def fetch_kucoin_news():
     print(f"📌 总共抓取 {total_count} 条新闻")
     print(f"🔍 去重后剩余 {filtered_count} 条新闻\n")
 
-    print("\n=== 抓取结果 ===\n")
-    for item in unique_news:
-        print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
+    # print("\n=== 抓取结果 ===\n")
+    # for item in unique_news:
+    #     print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
     
     return list(unique_news)
 
@@ -828,7 +832,7 @@ async def fetch_gate_news():
             print(f"错误信息: {str(e)}")
             html = await page.content()
             print("页面HTML前1000个字符:")
-            print(html[:1000])  # 输出HTML帮助调试
+            print(html[:100])  # 输出HTML帮助调试
         finally:
             await browser.close()
 
@@ -841,9 +845,9 @@ async def fetch_gate_news():
     print(f"📌 总共抓取 {total_count} 条新闻")
     print(f"🔍 去重后剩余 {filtered_count} 条新闻\n")
 
-    print("\n=== 抓取结果 ===\n")
-    for item in unique_news:
-        print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
+    # print("\n=== 抓取结果 ===\n")
+    # for item in unique_news:
+    #     print(f"📌 {item['title']}\n🔗 {item['link']}\n📅 {item['time']}\n")
     
     return list(unique_news)
 
@@ -937,6 +941,7 @@ async def main():
 import os
 import requests
 from bs4 import BeautifulSoup
+from playwright.async_api import async_playwright
 import logging
 import subprocess
 import sys

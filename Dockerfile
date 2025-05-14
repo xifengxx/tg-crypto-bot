@@ -53,10 +53,11 @@ ENV NODE_OPTIONS="--max-old-space-size=512"
 ENV RAILWAY_ENVIRONMENT=true
 ENV PYTHONUNBUFFERED=1
 
-# 安装 Playwright 及其依赖（确保使用正确的版本）
+# 安装 Playwright 及其依赖（使用headless_shell而非完整Chromium）
 RUN pip install playwright==1.40.0 && \
-    python -m playwright install chromium && \
-    python -m playwright install-deps chromium
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright python -m playwright install chromium --with-deps && \
+    apt-get update && apt-get install -y procps && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # 复制项目文件
 COPY . .

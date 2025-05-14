@@ -165,6 +165,8 @@ except Exception as e:
     logger.warning("⚠️ 使用内存存储作为备用")
 
 # 插入新闻到数据库
+# 修改第一处：将详细的跳过日志改为计数统计
+# 在store_news函数开头添加计数变量
 def store_news(news_list):
     """
     将新闻数据存入 MongoDB, 避免重复存储, 并返回新增条数
@@ -182,6 +184,7 @@ def store_news(news_list):
     # 记录已处理的新闻标识，用于本次批量处理中的去重
     processed_ids = set()
     new_count = 0
+    skip_count = 0  # 新增：记录跳过的新闻数量
     
     for news in news_list:
         try:
@@ -199,7 +202,8 @@ def store_news(news_list):
             
             # 检查是否在当前批次中已处理过
             if unique_id in processed_ids:
-                logger.debug(f"当前批次中已处理过此新闻，跳过: {news['title']}")
+                logger.debug(f"当前批次中已处理过此新闻，跳过")
+                skip_count += 1
                 continue
             
             # 添加到已处理集合
@@ -211,7 +215,8 @@ def store_news(news_list):
             })
             
             if existing_news:
-                logger.info(f"新闻已存在于数据库，跳过: {news['title']}")
+                # 修改：不再输出每条新闻的标题，只增加计数
+                skip_count += 1
                 continue
                 
             # 使用 update_one 配合 upsert=True
@@ -235,15 +240,17 @@ def store_news(news_list):
             # 如果是新插入的文档，增加计数
             if result.upserted_id:
                 new_count += 1
-                logger.info(f"新增新闻: {news['title']}")
+                # 修改：不再输出每条新闻的标题，只增加计数
+                # logger.info(f"新增新闻: {news['title']}")
                 
         except Exception as e:
             logger.error(f"存储新闻时出错: {e}")
             logger.exception("详细错误信息")
             continue
 
+    # 在循环结束后输出统计信息
     if new_count > 0:
-        logger.info(f"✅ 存储完成：新增 {new_count} 条新闻")
+        logger.info(f"✅ 存储完成：新增 {new_count} 条新闻，跳过 {skip_count} 条已存在新闻")
     else:
-        logger.info("✅ 存储完成：无新增新闻")
+        logger.info(f"✅ 存储完成：无新增新闻，跳过 {skip_count} 条已存在新闻")
     return new_count
