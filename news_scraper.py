@@ -946,6 +946,33 @@ import logging
 import subprocess
 import sys
 
+import shutil
+import tempfile
+
+def clean_temp_files():
+    """
+    清理Playwright临时文件
+    """
+    try:
+        # 清理/tmp目录下的playwright相关文件
+        temp_dir = tempfile.gettempdir()
+        for item in os.listdir(temp_dir):
+            if item.startswith('playwright') or item.startswith('pyppeteer'):
+                item_path = os.path.join(temp_dir, item)
+                try:
+                    if os.path.isdir(item_path):
+                        shutil.rmtree(item_path)
+                    else:
+                        os.remove(item_path)
+                    logger.info(f"已清理临时文件: {item_path}")
+                except Exception as e:
+                    logger.error(f"清理临时文件失败: {e}")
+    except Exception as e:
+        logger.error(f"清理临时文件过程中出错: {e}")
+
+
+
+
 logger = logging.getLogger(__name__)
 
 async def main():
@@ -991,6 +1018,7 @@ async def main():
         logger.error(f"抓取过程中出错: {e}")
         logger.exception("详细错误信息")
         return []  # 出错时返回空列表
+
 
 if __name__ == '__main__':
     asyncio.run(main())
